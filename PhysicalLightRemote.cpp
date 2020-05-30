@@ -42,10 +42,10 @@ struct Button_Map
     };
 };
 
-Button_Map ButtonsID = {0};
-Button_Map CurrentButtons = {0};
-Button_Map LastButtons = {0};
-
+Button_Map ButtonsID;
+Button_Map CurrentButtons;
+Button_Map LastButtons;
+uint32_t GlobalCounter = 0xFFFF0000;
 
 void ReadButtons(Button_Map *mapOutput, Button_Map *mapID)
 {
@@ -65,6 +65,12 @@ int ButtonComparison(int currentState, int lastState)
 
 void loop() 
 {
+    if (++GlobalCounter > 60 * 5)
+    {
+        PrintN("---loop---");
+        GlobalCounter = 0;
+    }
+    
     ReadButtons(&CurrentButtons, &ButtonsID);
 
     if(ButtonComparison(CurrentButtons.buttonA, LastButtons.buttonA))
@@ -91,9 +97,9 @@ void loop()
         PrintN(analogRead(ButtonsID.analogStick));
     }
 
-
     LastButtons = CurrentButtons;
-    delay(100);
+    // limit to 60 fps
+    delay(16); 
 }
 
 
