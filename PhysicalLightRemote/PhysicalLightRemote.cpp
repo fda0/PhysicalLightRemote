@@ -23,7 +23,6 @@
 #define PrintRaw(Text, Len)
 #endif
 
-
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 #define Button_Read(Value) (!digitalRead(Value))
 
@@ -31,6 +30,11 @@
 #define FrameDelay (1000 / Framerate)
 #define Seconds(Value) (Framerate * (Value))
 #define Minutes(Value) (Seconds((Value)) * Framerate)
+
+
+
+
+
 
 struct Button_Map 
 {
@@ -48,18 +52,22 @@ struct Button_Map
     };
 };
 
-namespace Global
-{
-    Button_Map ButtonsID;
-    Button_Map CurrentButtons;
-    Button_Map LastButtons;
-    uint32_t GlobalCycleCounter = 0xFFFF0000;
-    uint32_t DiscoveryDelay = 5;
 
-    WiFiUDP Udp;
-    IPAddress IpMulticast(239, 255, 255, 250);
-    char BigBuffer[1099];
-}
+// Global Variables
+Button_Map ButtonsID;
+Button_Map CurrentButtons;
+Button_Map LastButtons;
+uint32_t CycleCounter = 0xFFFF0000;
+uint32_t DiscoveryDelay = 5;
+
+WiFiUDP Udp;
+IPAddress IpMulticast(239, 255, 255, 250);
+char BigBuffer[1099];
+
+
+
+
+
 
 void ReadButtons(Button_Map *mapOutput, Button_Map *mapID)
 {
@@ -76,21 +84,17 @@ int ButtonComparison(int currentState, int lastState)
     return currentState != lastState;
 }
 
-
-
 void SendMulticastMessage()
 {
     PrintN("Sending multicast discover message");
     Udp.beginMulticast(WiFi.localIP(), IpMulticast, 1982);
     Udp.beginPacketMulticast(IpMulticast, 1982, WiFi.localIP());
     Udp.print("M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb");
-    //   Udp.print("M-SEARCH * HTTP/1.1\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb");
     Udp.endPacket();
     Udp.begin(1982);
 }
 
-
-int feedback()
+int UdpRead()
 {
     int packetSize = Udp.parsePacket();
     Print("Packet size: ");
@@ -109,13 +113,13 @@ int feedback()
     return packetSize;
 }
 
-void DiscoveryReadWithRetry()
+void UdpReadMultipleMessages()
 {
     for (int networkReadIndex = 0; 
-     networkReadIndex < 10 &&;
+     networkReadIndex < 10;
      ++networkReadIndex)
     {
-        if (!feedback())
+        if (!UdpRead())
         {
             break;
         }
@@ -127,22 +131,22 @@ void loop()
 {
     // periodic tasks
     {
-        ++GlobalCycleCounter;
+        ++CycleCounter;
         ++DiscoveryDelay;
 
-        if (GlobalCycleCounter % Seconds(1) == 0)
+        if (CycleCounter % Seconds(1) == 0)
         {
             PrintN("---loop---");
         }
 
-        if (GlobalCycleCounter % Seconds(DiscoveryDelay) == 0)
+        if (CycleCounter % Seconds(DiscoveryDelay) == 0)
         {
             SendMulticastMessage();
         }
 
-        if (GlobalCycleCounter % Seconds(DiscoveryDelay + 1) == 0)
+        if (CycleCounter % Seconds(DiscoveryDelay + 1) == 0)
         {
-            DiscoveryReadWithRetry();
+            UdpReadMultipleMessages();
         }
     }
     
