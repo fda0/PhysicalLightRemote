@@ -1,6 +1,7 @@
 // -- essentials --
 #include <Arduino.h>
 // wifi
+#include <WiFiUdp.h>
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>
 #include <WiFiClient.h>
@@ -22,9 +23,14 @@
 #define PrintRaw(Text, Len)
 #endif
 
+
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 #define Button_Read(Value) (!digitalRead(Value))
 
+#define Framerate 20
+#define FrameDelay (1000 / Framerate)
+#define Seconds(Value) (Framerate * (Value))
+#define Minutes(Value) (Seconds((Value)) * Framerate)
 
 struct Button_Map 
 {
@@ -42,10 +48,18 @@ struct Button_Map
     };
 };
 
-Button_Map ButtonsID;
-Button_Map CurrentButtons;
-Button_Map LastButtons;
-uint32_t GlobalCounter = 0xFFFF0000;
+namespace Global
+{
+    Button_Map ButtonsID;
+    Button_Map CurrentButtons;
+    Button_Map LastButtons;
+    uint32_t GlobalCycleCounter = 0xFFFF0000;
+    uint32_t DiscoveryDelay = 5;
+
+    WiFiUDP Udp;
+    IPAddress IpMulticast(239, 255, 255, 250);
+    char BigBuffer[1099];
+}
 
 void ReadButtons(Button_Map *mapOutput, Button_Map *mapID)
 {
@@ -63,12 +77,73 @@ int ButtonComparison(int currentState, int lastState)
 }
 
 
+
+void SendMulticastMessage()
+{
+    PrintN("Sending multicast discover message");
+    Udp.beginMulticast(WiFi.localIP(), IpMulticast, 1982);
+    Udp.beginPacketMulticast(IpMulticast, 1982, WiFi.localIP());
+    Udp.print("M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb");
+    //   Udp.print("M-SEARCH * HTTP/1.1\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb");
+    Udp.endPacket();
+    Udp.begin(1982);
+}
+
+
+int feedback()
+{
+    int packetSize = Udp.parsePacket();
+    Print("Packet size: ");
+    PrintN(packetSize);
+    if (packetSize) 
+    {
+        int len = Udp.read(BigBuffer, 1099);
+        if (len > 0) 
+        {
+            BigBuffer[len] = 0;
+        }
+        Print("Output >>");
+        PrintRaw(BigBuffer, len);
+        PrintN("<<");
+    }
+    return packetSize;
+}
+
+void DiscoveryReadWithRetry()
+{
+    for (int networkReadIndex = 0; 
+     networkReadIndex < 10 &&;
+     ++networkReadIndex)
+    {
+        if (!feedback())
+        {
+            break;
+        }
+    }
+}
+
+
 void loop() 
 {
-    if (++GlobalCounter > 60 * 5)
+    // periodic tasks
     {
-        PrintN("---loop---");
-        GlobalCounter = 0;
+        ++GlobalCycleCounter;
+        ++DiscoveryDelay;
+
+        if (GlobalCycleCounter % Seconds(1) == 0)
+        {
+            PrintN("---loop---");
+        }
+
+        if (GlobalCycleCounter % Seconds(DiscoveryDelay) == 0)
+        {
+            SendMulticastMessage();
+        }
+
+        if (GlobalCycleCounter % Seconds(DiscoveryDelay + 1) == 0)
+        {
+            DiscoveryReadWithRetry();
+        }
     }
     
     ReadButtons(&CurrentButtons, &ButtonsID);
@@ -98,9 +173,9 @@ void loop()
     }
 
     LastButtons = CurrentButtons;
-    // limit to 60 fps
-    delay(16); 
+    delay(FrameDelay); 
 }
+
 
 
 void setup()
@@ -135,9 +210,22 @@ void setup()
         LastButtons = CurrentButtons;
     }
 
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    // delay for DHCP
+    delay(1000); 
+
 
 #if CREATE_SERVER_TO_CONFIG_WIFI
     WiFiManager wifiManager; 
     wifiManager.autoConnect("ESP-CONF");  
 #endif
+
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.println("Connecting to WiFi..");
+    }
+
+    Serial.println("Connected to the WiFi network");
 }
