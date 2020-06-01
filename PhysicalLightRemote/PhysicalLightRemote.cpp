@@ -92,8 +92,11 @@ Light_Collection LightCollection;
 uint32_t CycleCounter = 0xFFFF0000;
 
 
-WiFiUDP Udp;
+WiFiUDP GlobalUdp;
+WiFiClient GlobalClient;
 IPAddress IpMulticast(239, 255, 255, 250);
+
+#define MediumBufferSize 512
 #define BigBufferSize 1024
 char BigBuffer[BigBufferSize];
 
@@ -126,8 +129,6 @@ int FindFirstOf(const char* inputStr, const char* searchStr, int maxSearchRange 
     }
     return -1;
 }
-
-
 
 void CatString(char *output, const char *source, int startPos, int length)
 {
@@ -243,6 +244,7 @@ void ParseUdpRead(const char *buffer)
                     featuresBuffer.setBright = (FindFirstOf(buffer, SetBright, powerOffset) != -1);
 
                     buffer += powerOffset + sizeof(powerTag) + 1;
+                    bool isPowered = (*buffer == 'n');
                     FillLightData(LightCollection.lightCount, ipBuffer, &featuresBuffer, isPowered);
                     ++LightCollection.lightCount;
                 }
@@ -255,12 +257,12 @@ void ParseUdpRead(const char *buffer)
 
 int UdpRead()
 {
-    int packetSize = Udp.parsePacket();
+    int packetSize = GlobalUdp.parsePacket();
     Print("Packet size: ");
     PrintN(packetSize);
     if (packetSize) 
     {
-        int readLength = Udp.read(BigBuffer, BigBufferSize);
+        int readLength = GlobalUdp.read(BigBuffer, BigBufferSize);
         if (readLength > 0)
         {
             BigBuffer[readLength] = 0;
@@ -286,11 +288,11 @@ void UdpReadMultipleMessages()
 void SendMulticastMessage()
 {
     PrintN("Sending multicast discover message");
-    Udp.beginMulticast(WiFi.localIP(), IpMulticast, 1982);
-    Udp.beginPacketMulticast(IpMulticast, 1982, WiFi.localIP());
-    Udp.print("M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb");
-    Udp.endPacket();
-    Udp.begin(1982);
+    GlobalUdp.beginMulticast(WiFi.localIP(), IpMulticast, 1982);
+    GlobalUdp.beginPacketMulticast(IpMulticast, 1982, WiFi.localIP());
+    GlobalUdp.print("M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb");
+    GlobalUdp.endPacket();
+    GlobalUdp.begin(1982);
 }
 
 
@@ -306,7 +308,41 @@ void ReadButtons(Button_Map *mapOutput, Button_Map *mapID)
 
 int ButtonComparison(int currentState, int lastState)
 {
-    return currentState != lastState;
+    return (currentState != lastState) && currentState;
+}
+
+void SendCommand(Light *light, const char *method, const char *params)
+{
+    sprintf(BigBuffer, "{\"id\": 1, \"method\": \"%s\", \"params\":[%s]}", method, params);
+
+    if (GlobalClient.connect(light->ipAddress, (uint16_t)55443)) 
+    {
+        GlobalClient.println(BigBuffer);
+    }
+
+    String result = "";
+    while (GlobalClient.connected()) 
+    {
+        result = GlobalClient.readStringUntil('\r');
+        Print("result test = ");
+        PrintN(result);
+        GlobalClient.stop();
+    }
+}
+
+void ButtonToggleLights()
+{
+    for (int lightIndex = 0;
+         lightIndex < LightCollection.lightCount;
+         ++lightIndex)
+    {
+        Light *light = &LightCollection.lights[lightIndex];
+        
+        char paramBuffer[MediumBufferSize];
+        sprintf(paramBuffer, "\"%s\", \"smooth\", 500", (light->isPowered ? "off" : "on"));
+        SendCommand(light, Yeelight::SetPower, paramBuffer);
+        light->isPowered = !(light->isPowered); 
+    }
 }
 
 void loop() 
@@ -338,7 +374,8 @@ void loop()
 
         if(ButtonComparison(CurrentButtons.buttonA, LastButtons.buttonA))
         {
-            Print("Button one change, analog = ");
+            ButtonToggleLights();
+            Print("[LIGHT TOGGLE] Button one change, analog = ");
             PrintN(analogRead(ButtonsID.analogStick));
         }
 
