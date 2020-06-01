@@ -2,13 +2,8 @@
 #include <Arduino.h>
 // wifi
 #include <WiFiUdp.h>
-#include <ESP8266WiFi.h>
 #include <WiFiManager.h>
 #include <WiFiClient.h>
-// internet
-#include <ESP8266WebServer.h>
-#include <ESP8266HTTPClient.h>
-#include <DNSServer.h>
 // our files
 #include "PLR_config.h"
 #include "PhysicalLightRemote.h"
@@ -46,18 +41,6 @@ int ButtonComparison(int currentState, int lastState)
     return (currentState != lastState) && currentState;
 }
 
-void SendCommand(Light *light, const char *method, const char *params)
-{
-    char buffer[MEDIUM_BUFFER_SIZE];
-    sprintf(buffer, "{\"id\": 1, \"method\": \"%s\", \"params\":[%s]}", method, params);
-
-    // if (GlobalClient.connect(light->ipAddress, (uint16_t)55443)) 
-    // {
-    //     GlobalClient.println(buffer);
-    // }
-    
-    PrintN("MESSAGE 1");
-}
 
 void ButtonToggleLights()
 {
@@ -69,15 +52,15 @@ void ButtonToggleLights()
 
         char paramBuffer[MEDIUM_BUFFER_SIZE];
         sprintf(paramBuffer, "\"%s\", \"smooth\", 500", (light->isPowered ? "off" : "on"));
-        SendCommand(light, Yeelight::SetPower, paramBuffer);
+        SendCommand(&GlobalNetworkClients, light->ipAddress, Yeelight::SetPower, paramBuffer);
 
         light->isPowered = !(light->isPowered);
 
-        // while (GlobalClient.connected()) 
-        // {
-        //     PrintN("CLOSE 1");
-        //     GlobalClient.stop();
-        // }
+        while (GlobalNetworkClients.clients[0].connected()) 
+        {
+            PrintN("CLOSE 1");
+            GlobalNetworkClients.clients[0].stop();
+        }
 
     }
 }

@@ -92,9 +92,12 @@ void UdpReadMultipleMessages(WiFiUDP *udp, Light_Collection *lightCollection)
      ++networkReadIndex)
     {
         char buffer[BIG_BUFFER_SIZE];
-        if (!UdpRead(udp, buffer, sizeof(buffer)))
+        if (UdpRead(udp, buffer, sizeof(buffer)))
         {
-            ParseUdpRead(lightCollection ,buffer);
+            ParseUdpRead(lightCollection, buffer);
+        }
+        else
+        {
             break;
         }
     }

@@ -75,6 +75,5 @@ struct Light_Collection
 struct Network_Clients
 {
     WiFiClient clients[NETWORK_CLIENTS_COUNT];
-    bool isClientOpen[NETWORK_CLIENTS_COUNT];
-    int currentUsageCount;
+    int currentOpenCount;
 };

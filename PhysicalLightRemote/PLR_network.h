@@ -29,3 +29,43 @@ void SendMulticastMessage(WiFiUDP *udp, IPAddress *multicast)
     udp->endPacket();
     udp->begin(1982);
 }
+
+void CloseConnections(Network_Clients *networkClients)
+{
+    for (int clientIndex = 0;
+         clientIndex < networkClients->currentOpenCount;
+         ++clientIndex)
+    {
+        WiFiClient *client = &networkClients->clients[clientIndex];
+        while (client->connected())
+        {
+            client->stop();
+        }
+
+        PrintN("Connection closed");
+    }
+
+    networkClients->currentOpenCount = 0;
+}
+
+void SendCommand(Network_Clients *networkClients, const char *ipAddress, 
+                 const char *method, const char *params)
+{
+    if (networkClients->currentOpenCount == NETWORK_CLIENTS_COUNT)
+    {
+        CloseConnections(networkClients);
+    }
+
+    WiFiClient *client = &networkClients->clients[networkClients->currentOpenCount++];
+
+    char buffer[MEDIUM_BUFFER_SIZE];
+    sprintf(buffer, "{\"id\": 1, \"method\": \"%s\", \"params\":[%s]}", method, params);
+
+    if (client->connect(ipAddress, 55443)) 
+    {
+        client->println(buffer);
+    }
+    
+    PrintN("Command Sent");
+}
+
