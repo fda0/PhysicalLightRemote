@@ -16,7 +16,7 @@
 #if DEV_MODE
 #define PrintN(Text) Serial.println((Text))
 #define Print(Text) Serial.print((Text))
-#define PrintRaw(Text, Len) Serial.write((Text), (Len))
+#define PrintRaw(Text, Len) Serial.write((char *)(Text), (Len))
 #else
 #define PrintN(Text)
 #define Print(Text)
@@ -32,7 +32,11 @@
 #define Minutes(Value) (Seconds((Value)) * Framerate)
 
 
-
+namespace Yeelight
+{
+    const char SetPower[] = "set_power";
+    const char SetBright[] = "set_bright"; 
+};
 
 
 
@@ -53,45 +57,200 @@ struct Button_Map
 };
 
 
+enum Light_Type
+{
+    Mono,
+    Color
+};
+
+struct Features
+{
+    bool setPower;
+    bool setBright;
+};
+
+struct Light
+{
+    Light_Type type;
+    char ipAddress[16];
+    Features features;
+    bool isPowered;
+};
+
+struct Light_Collection
+{
+    Light lights[32];
+    int lightCount;
+};
+
+
 // Global Variables
 Button_Map ButtonsID;
 Button_Map CurrentButtons;
 Button_Map LastButtons;
+Light_Collection LightCollection;
 uint32_t CycleCounter = 0xFFFF0000;
-uint32_t DiscoveryDelay = 5;
+
 
 WiFiUDP Udp;
 IPAddress IpMulticast(239, 255, 255, 250);
-char BigBuffer[1099];
+#define BigBufferSize 1024
+char BigBuffer[BigBufferSize];
 
 
-
-
-
-
-void ReadButtons(Button_Map *mapOutput, Button_Map *mapID)
+int FindFirstOf(const char* inputStr, const char* searchStr, int maxSearchRange = 2048)
 {
-    for (int buttonIndex = 0;
-         buttonIndex < ArrayCount(mapID->buttons);
-         ++buttonIndex)
+    int input = 0;
+    while ((inputStr[input] != 0))
     {
-        mapOutput->buttons[buttonIndex] = Button_Read(mapID->buttons[buttonIndex]);
+        int inputCopy = input;
+        int search = 0;
+
+        while (inputStr[inputCopy] == searchStr[search])
+        {
+            ++inputCopy;
+            ++search;
+
+            if (searchStr[search] == 0)
+            {
+                return input;
+            }
+        }
+
+        if (inputCopy > maxSearchRange)
+        {
+            return -1;
+        }
+        
+        ++input;
+    }
+    return -1;
+}
+
+
+
+void CatString(char *output, const char *source, int startPos, int length)
+{
+    for (int i = startPos; i < (startPos + length); ++i)
+    {
+        output[i] = source[i];
+    }
+
+    if (output[length - 1] != 0)
+    {
+        output[length] = 0;
     }
 }
 
-int ButtonComparison(int currentState, int lastState)
+void CopyString(char *output, const char *source)
 {
-    return currentState != lastState;
+    while (*source != 0)
+    {
+        *output = *source;
+        ++output;
+        ++source;
+    }
+    *output = 0;
 }
 
-void SendMulticastMessage()
+
+bool AreStringIdentical(const char *a, const char *b)
 {
-    PrintN("Sending multicast discover message");
-    Udp.beginMulticast(WiFi.localIP(), IpMulticast, 1982);
-    Udp.beginPacketMulticast(IpMulticast, 1982, WiFi.localIP());
-    Udp.print("M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb");
-    Udp.endPacket();
-    Udp.begin(1982);
+    while (*a == *b)
+    {
+        if (*a == 0)
+        {
+            return true;
+        }
+        
+        ++a;
+        ++b;
+    }
+
+    return false;
+}
+
+
+void FillLightData(int lightIndex, const char *ipBuffer, Features *featuresBuffer, bool isPowered)
+{
+    using namespace Yeelight;    
+    Light *light = &LightCollection.lights[lightIndex];
+    
+    CopyString(light->ipAddress, ipBuffer);
+    light->features = *featuresBuffer;
+    light->isPowered = isPowered;
+
+    Print("Adding new light with IP: ");
+    Print(light->ipAddress);
+    Print(", features: [");
+    if (light->features.setPower)
+    {
+        Print(SetPower);
+        Print(", ");   
+    }
+    if (light->features.setBright)
+    {
+        Print(SetBright);
+        Print(", ");   
+    }
+    Print("], Power state: ");
+    PrintN(light->isPowered);
+}
+
+void ParseUdpRead(const char *buffer)
+{
+    const char yeelightTag[] = "yeelight://";
+    const char colonTag[] = ":";
+    const char supportTag[] = "support:";
+    const char powerTag[] = "power:";
+
+    int addressOffset = FindFirstOf(buffer, yeelightTag);
+    if (addressOffset != -1)
+    {
+        buffer += addressOffset + sizeof(yeelightTag) - 1;
+
+        int colonOffset = FindFirstOf(buffer, colonTag);
+        if (colonOffset != -1 && colonOffset < 16)
+        {
+            char ipBuffer[16];
+            CatString(ipBuffer, buffer, 0, colonOffset);
+
+            Print("Ip buffer: ");
+            PrintN(ipBuffer);
+
+            for (int lightIndex = 0; 
+                 lightIndex < LightCollection.lightCount;
+                 ++lightIndex)
+            {
+                if (AreStringIdentical(ipBuffer, LightCollection.lights[lightIndex].ipAddress))
+                {
+                    return;
+                }
+            }
+
+            int supportOffset = FindFirstOf(buffer, supportTag);
+            if (supportOffset != -1)
+            {
+                buffer += supportOffset + sizeof(supportTag) - 1;
+                int powerOffset = FindFirstOf(buffer, powerTag);
+
+                if (powerOffset != -1)
+                {
+                    using namespace Yeelight;
+
+                    Features featuresBuffer = {0};
+                    featuresBuffer.setPower = (FindFirstOf(buffer, SetPower, powerOffset) != -1);
+                    featuresBuffer.setBright = (FindFirstOf(buffer, SetBright, powerOffset) != -1);
+
+                    buffer += powerOffset + sizeof(powerTag) + 1;
+                    FillLightData(LightCollection.lightCount, ipBuffer, &featuresBuffer, isPowered);
+                    ++LightCollection.lightCount;
+                }
+
+            }
+
+        }
+    }
 }
 
 int UdpRead()
@@ -101,14 +260,12 @@ int UdpRead()
     PrintN(packetSize);
     if (packetSize) 
     {
-        int len = Udp.read(BigBuffer, 1099);
-        if (len > 0) 
+        int readLength = Udp.read(BigBuffer, BigBufferSize);
+        if (readLength > 0)
         {
-            BigBuffer[len] = 0;
+            BigBuffer[readLength] = 0;
+            ParseUdpRead(BigBuffer);
         }
-        Print("Output >>");
-        PrintRaw(BigBuffer, len);
-        PrintN("<<");
     }
     return packetSize;
 }
@@ -126,54 +283,82 @@ void UdpReadMultipleMessages()
     }
 }
 
+void SendMulticastMessage()
+{
+    PrintN("Sending multicast discover message");
+    Udp.beginMulticast(WiFi.localIP(), IpMulticast, 1982);
+    Udp.beginPacketMulticast(IpMulticast, 1982, WiFi.localIP());
+    Udp.print("M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb");
+    Udp.endPacket();
+    Udp.begin(1982);
+}
+
+
+void ReadButtons(Button_Map *mapOutput, Button_Map *mapID)
+{
+    for (int buttonIndex = 0;
+         buttonIndex < ArrayCount(mapID->buttons);
+         ++buttonIndex)
+    {
+        mapOutput->buttons[buttonIndex] = Button_Read(mapID->buttons[buttonIndex]);
+    }
+}
+
+int ButtonComparison(int currentState, int lastState)
+{
+    return currentState != lastState;
+}
 
 void loop() 
 {
     // periodic tasks
     {
         ++CycleCounter;
-        ++DiscoveryDelay;
 
-        if (CycleCounter % Seconds(1) == 0)
+        if ((CycleCounter % Seconds(1)) == 0)
         {
             PrintN("---loop---");
         }
 
-        if (CycleCounter % Seconds(DiscoveryDelay) == 0)
+        if ((CycleCounter % Seconds(5)) == 0)
         {
             SendMulticastMessage();
         }
 
-        if (CycleCounter % Seconds(DiscoveryDelay + 1) == 0)
+        if (((CycleCounter - Seconds(1)) % Seconds(5)) == 0)
         {
             UdpReadMultipleMessages();
         }
     }
     
-    ReadButtons(&CurrentButtons, &ButtonsID);
 
-    if(ButtonComparison(CurrentButtons.buttonA, LastButtons.buttonA))
+    // button handling
     {
-        Print("Button one change, analog = ");
-        PrintN(analogRead(ButtonsID.analogStick));
-    }
+        ReadButtons(&CurrentButtons, &ButtonsID);
 
-    if(ButtonComparison(CurrentButtons.buttonB, LastButtons.buttonB))
-    {
-        Print("Button two change, analog = ");
-        PrintN(analogRead(ButtonsID.analogStick));
-    }
+        if(ButtonComparison(CurrentButtons.buttonA, LastButtons.buttonA))
+        {
+            Print("Button one change, analog = ");
+            PrintN(analogRead(ButtonsID.analogStick));
+        }
 
-    if(ButtonComparison(CurrentButtons.buttonC, LastButtons.buttonC))
-    {
-        Print("Button three change, analog = ");
-        PrintN(analogRead(ButtonsID.analogStick));
-    }
+        if(ButtonComparison(CurrentButtons.buttonB, LastButtons.buttonB))
+        {
+            Print("Button two change, analog = ");
+            PrintN(analogRead(ButtonsID.analogStick));
+        }
 
-    if(ButtonComparison(CurrentButtons.buttonD, LastButtons.buttonD))
-    {
-        Print("Button four change, analog = ");
-        PrintN(analogRead(ButtonsID.analogStick));
+        if(ButtonComparison(CurrentButtons.buttonC, LastButtons.buttonC))
+        {
+            Print("Button three change, analog = ");
+            PrintN(analogRead(ButtonsID.analogStick));
+        }
+
+        if(ButtonComparison(CurrentButtons.buttonD, LastButtons.buttonD))
+        {
+            Print("Button four change, analog = ");
+            PrintN(analogRead(ButtonsID.analogStick));
+        }
     }
 
     LastButtons = CurrentButtons;
@@ -194,7 +379,6 @@ void setup()
         delay(1000);
     }
 #endif
-
 
     // init buttons
     {
@@ -232,4 +416,8 @@ void setup()
     }
 
     Serial.println("Connected to the WiFi network");
+
+    SendMulticastMessage();
+    delay(Seconds(1));
+    UdpReadMultipleMessages();
 }
