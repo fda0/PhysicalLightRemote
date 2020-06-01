@@ -55,14 +55,10 @@ void ButtonToggleLights()
         SendCommand(&GlobalNetworkClients, light->ipAddress, Yeelight::SetPower, paramBuffer);
 
         light->isPowered = !(light->isPowered);
-
-        while (GlobalNetworkClients.clients[0].connected()) 
-        {
-            PrintN("CLOSE 1");
-            GlobalNetworkClients.clients[0].stop();
-        }
-
     }
+
+
+    CloseConnections(&GlobalNetworkClients);
 }
 
 void loop() 
