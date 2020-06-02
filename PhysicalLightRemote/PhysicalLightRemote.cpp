@@ -25,9 +25,9 @@ namespace Global
     uint32_t CycleCounter;
 
     uint32_t UdpRefreshPeriodMs = 1000;
-    uint32_t LastUdpMessageSentCycle;
     bool MulticastMessageSent;
-
+    uint32_t LastUdpMessageSentCycle;
+    uint32_t LastAnalogMeasurementCycle;
     uint32_t LastAnalogCalculationCycle;
 }
 
@@ -49,19 +49,21 @@ void loop()
     {
         if (TimeElapsed(LastUdpMessageSentCycle) > (UdpRefreshPeriodMs - 1000) && !MulticastMessageSent)
         {
-            PrintN("MULTICAST");
+            Print("MULTICAST CycleCounter: ");
+            PrintN(CycleCounter);
             SendMulticastMessage(&Udp, &IpMulticast);
             MulticastMessageSent = true;
         }
 
         if (TimeElapsed(LastUdpMessageSentCycle) > UdpRefreshPeriodMs)
         {
-            PrintN("READING");
+            Print("READING CycleCounter: ");
+            PrintN(CycleCounter);
             UdpReadMultipleMessages(&Udp, &LightCollection);
 
             MulticastMessageSent = false;
             LastUdpMessageSentCycle = currentTimestamp;
-            UdpRefreshPeriodMs += 2000;
+            UdpRefreshPeriodMs = 5000;
 
             // debug
             if (DebugFrameCount > 0)
@@ -82,12 +84,12 @@ void loop()
         }
     }
     
-
     // button handling
     {
         ReadButtons(&Buttons, currentTimestamp);
-        if ((CycleCounter % 16) == 0)
+        if (TimeElapsed(LastAnalogMeasurementCycle) > 2)
         {
+            LastAnalogMeasurementCycle = currentTimestamp;
             CollectAnalogSamples(&Buttons.stick);
         }
 
@@ -181,6 +183,8 @@ void setup()
 
     Serial.println("Connected to the WiFi network");
 
-    LastUdpMessageSentCycle = millis();
-    LastAnalogCalculationCycle = millis();
+    uint32_t currentTime = millis();
+    LastUdpMessageSentCycle = currentTime;
+    LastAnalogCalculationCycle = currentTime;
+    LastAnalogMeasurementCycle = currentTime;
 }

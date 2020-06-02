@@ -31,7 +31,7 @@ struct Button
     bool lastValue;
 };
 
-#define AnalogHistoryCount 512
+#define AnalogHistoryCount (512)
 struct Analog_Button
 {
     int key;

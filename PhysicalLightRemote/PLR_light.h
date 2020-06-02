@@ -90,7 +90,7 @@ void UdpReadMultipleMessages(WiFiUDP *udp, Light_Collection *lightCollection)
      networkReadIndex < 10;
      ++networkReadIndex)
     {
-        char buffer[BigBufferSize];
+        char buffer[BigBufferSize] = {0};
         if (UdpRead(udp, buffer, sizeof(buffer)))
         {
             PrintN("Got Message");

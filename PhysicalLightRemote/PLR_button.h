@@ -1,8 +1,8 @@
 void CollectAnalogSamples(Analog_Button *stick)
 {
-    stick->history[stick->historyIndex] = analogRead(stick->key);
-
+    stick->history[stick->historyIndex] = (int16_t)analogRead(stick->key);
     ++stick->historyIndex;
+
     if (stick->historyIndex >= AnalogHistoryCount)
     {
         stick->historyIndex = 0;   
@@ -10,20 +10,31 @@ void CollectAnalogSamples(Analog_Button *stick)
 
     if (stick->hotHistoryCount < AnalogHistoryCount)
     {
-        ++stick->hotHistoryCount;   
+        ++stick->hotHistoryCount;
     }
 }
 
 
 void CalculateAnalogValue(Analog_Button *stick)
 {
+    // TODO(mautesz): overkill stupid stuff - get better analog stick and simplify it?
     stick->lastValue = stick->value;
+
     int sum = 0;
     for (int i = 0; i < stick->hotHistoryCount; ++i)
     {
         sum += stick->history[i];
     }
-    int averagePassOne = sum / stick->hotHistoryCount;
+
+    int averagePassOne;
+    if (stick->hotHistoryCount > 0)
+    {
+        averagePassOne = sum / stick->hotHistoryCount;
+    }
+    else
+    {
+        averagePassOne = 0;
+    }
 
     const int16_t maxDeviation = 100;
     int sampleCount = 0;
@@ -37,8 +48,6 @@ void CalculateAnalogValue(Analog_Button *stick)
             sum += sample;
         }
     }        
-
-
 
     if (sampleCount > 0)
     {
@@ -89,7 +98,6 @@ bool DigitalButtonComparison(Button *button, uint32_t timestamp)
 bool AnalogButtonComparison(Analog_Button *button)
 {
     int difference = button->value - button->lastValue;
-
-    const int margin = 10;
+    int margin = 10;
     return Abs(difference) > margin;
 }

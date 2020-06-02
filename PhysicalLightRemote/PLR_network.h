@@ -13,6 +13,7 @@ bool UdpRead(WiFiUDP *udp, char *outputBuffer, int bufferSize)
         }
         else
         {
+            outputBuffer[0] = 0;
             return false;
         }
     }
