@@ -10,6 +10,7 @@ void FillLightData(Light_Collection *lightCollection, int targetLightIndex,
     light->features = *featuresBuffer;
     light->isPowered = isPowered;
 
+#if DEV_PRINT
     Print("Adding new light with IP: ");
     Print(light->ipAddress);
     Print(", features: [");
@@ -25,6 +26,7 @@ void FillLightData(Light_Collection *lightCollection, int targetLightIndex,
     }
     Print("], Power state: ");
     PrintN(light->isPowered);
+#endif
 }
 
 void ParseUdpRead(Light_Collection *lightCollection, const char *buffer)
@@ -44,9 +46,6 @@ void ParseUdpRead(Light_Collection *lightCollection, const char *buffer)
         {
             char ipBuffer[16];
             CatString(ipBuffer, buffer, 0, colonOffset);
-
-            Print("Ip buffer: ");
-            PrintN(ipBuffer);
 
             for (int lightIndex = 0; 
                  lightIndex < lightCollection->currentLightCount;
@@ -91,13 +90,15 @@ void UdpReadMultipleMessages(WiFiUDP *udp, Light_Collection *lightCollection)
      networkReadIndex < 10;
      ++networkReadIndex)
     {
-        char buffer[BIG_BUFFER_SIZE];
+        char buffer[BigBufferSize];
         if (UdpRead(udp, buffer, sizeof(buffer)))
         {
+            PrintN("Got Message");
             ParseUdpRead(lightCollection, buffer);
         }
         else
         {
+            PrintN("End of Messages");
             break;
         }
     }

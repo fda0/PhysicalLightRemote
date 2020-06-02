@@ -10,118 +10,128 @@
 #include "PLR_string.h"
 #include "PLR_network.h"
 #include "PLR_light.h"
+#include "PLR_button.h"
+#include "PLR_command.h"
 
 
 // Global Variables
-Button_Map ButtonsID;
-Button_Map CurrentButtons;
-Button_Map LastButtons;
-Light_Collection GlobalLightCollection;
-uint32_t CycleCounter = 0xFFFF0000;
-
-WiFiUDP GlobalUdp;
-Network_Clients GlobalNetworkClients;
-IPAddress GlobalIpMulticast(239, 255, 255, 250);
-
-
-
-
-void ReadButtons(Button_Map *mapOutput, Button_Map *mapID)
+namespace Global
 {
-    for (int buttonIndex = 0;
-         buttonIndex < ArrayCount(mapID->buttons);
-         ++buttonIndex)
-    {
-        mapOutput->buttons[buttonIndex] = Button_Read(mapID->buttons[buttonIndex]);
-    }
+    Button_Map Buttons;
+    Light_Collection LightCollection;
+    Network_Clients NetworkClients;
+    WiFiUDP Udp;
+    IPAddress IpMulticast(239, 255, 255, 250);
+    uint32_t CycleCounter;
+
+    uint32_t UdpRefreshPeriodMs = 1000;
+    uint32_t LastUdpMessageSentCycle;
+    bool MulticastMessageSent;
+
+    uint32_t LastAnalogCalculationCycle;
 }
 
-int ButtonComparison(int currentState, int lastState)
-{
-    return (currentState != lastState) && currentState;
-}
+uint32_t DebugLastCycle;
+uint32_t DebugFrameCount;
 
 
-void ButtonToggleLights()
-{
-    for (int lightIndex = 0;
-         lightIndex < GlobalLightCollection.currentLightCount;
-         ++lightIndex)
-    {
-        Light *light = &GlobalLightCollection.lights[lightIndex];
-
-        char paramBuffer[MEDIUM_BUFFER_SIZE];
-        sprintf(paramBuffer, "\"%s\", \"smooth\", 500", (light->isPowered ? "off" : "on"));
-        SendCommand(&GlobalNetworkClients, light->ipAddress, Yeelight::SetPower, paramBuffer);
-
-        light->isPowered = !(light->isPowered);
-    }
-
-
-    CloseConnections(&GlobalNetworkClients);
-}
-
+#define TimeElapsed(LastTime) (currentTimestamp - (LastTime))
 void loop() 
 {
-    // periodic tasks
+    using namespace Global;
+    uint32_t currentTimestamp = millis();
+
+    //timers
+    CycleCounter += 1;
+    DebugFrameCount += 1;
+
+    // periodic udp mutlicast task
     {
-        ++CycleCounter;
-
-        if ((CycleCounter % Seconds(1)) == 0)
+        if (TimeElapsed(LastUdpMessageSentCycle) > (UdpRefreshPeriodMs - 1000) && !MulticastMessageSent)
         {
-            PrintN("---loop---");
+            PrintN("MULTICAST");
+            SendMulticastMessage(&Udp, &IpMulticast);
+            MulticastMessageSent = true;
         }
 
-        if ((CycleCounter % Seconds(5)) == 0)
+        if (TimeElapsed(LastUdpMessageSentCycle) > UdpRefreshPeriodMs)
         {
-            SendMulticastMessage(&GlobalUdp, &GlobalIpMulticast);
-        }
+            PrintN("READING");
+            UdpReadMultipleMessages(&Udp, &LightCollection);
 
-        if (((CycleCounter - Seconds(1)) % Seconds(5)) == 0)
-        {
-            UdpReadMultipleMessages(&GlobalUdp, &GlobalLightCollection);
+            MulticastMessageSent = false;
+            LastUdpMessageSentCycle = currentTimestamp;
+            UdpRefreshPeriodMs += 2000;
+
+            // debug
+            if (DebugFrameCount > 0)
+            {
+                Print("Average frame time: ");
+                Print(TimeElapsed(DebugLastCycle) / DebugFrameCount);
+                Print("ms [(");
+                Print(currentTimestamp);
+                Print(" - ");
+                Print(DebugLastCycle);
+                Print(") / ");
+                Print(DebugFrameCount);
+                PrintN("]");
+
+                DebugLastCycle = currentTimestamp;
+                DebugFrameCount = 0;
+            }
         }
     }
     
 
     // button handling
     {
-        ReadButtons(&CurrentButtons, &ButtonsID);
-
-        if(ButtonComparison(CurrentButtons.buttonA, LastButtons.buttonA))
+        ReadButtons(&Buttons, currentTimestamp);
+        if ((CycleCounter % 16) == 0)
         {
-            ButtonToggleLights();
-            Print("[LIGHT TOGGLE] Button one change, analog = ");
-            PrintN(analogRead(ButtonsID.analogStick));
+            CollectAnalogSamples(&Buttons.stick);
         }
 
-        if(ButtonComparison(CurrentButtons.buttonB, LastButtons.buttonB))
+        if(DigitalButtonComparison(&Buttons.buttonA, currentTimestamp))
         {
-            Print("Button two change, analog = ");
-            PrintN(analogRead(ButtonsID.analogStick));
+            CommandPower(&LightCollection, &NetworkClients);
+            PrintN("[LIGHT TOGGLE] Button one ON");
         }
 
-        if(ButtonComparison(CurrentButtons.buttonC, LastButtons.buttonC))
+        if(DigitalButtonComparison(&Buttons.buttonB, currentTimestamp))
         {
-            Print("Button three change, analog = ");
-            PrintN(analogRead(ButtonsID.analogStick));
+            PrintN("Button two ON");
         }
 
-        if(ButtonComparison(CurrentButtons.buttonD, LastButtons.buttonD))
+        if(DigitalButtonComparison(&Buttons.buttonC, currentTimestamp))
         {
-            Print("Button four change, analog = ");
-            PrintN(analogRead(ButtonsID.analogStick));
+            PrintN("Button three ON");
+        }
+
+        if(DigitalButtonComparison(&Buttons.buttonD, currentTimestamp))
+        {
+            PrintN("Button four ON");
+        }
+
+        if (TimeElapsed(LastAnalogCalculationCycle) > 125)
+        {
+            LastAnalogCalculationCycle = currentTimestamp;
+
+            CalculateAnalogValue(&Buttons.stick);
+            if (AnalogButtonComparison(&Buttons.stick))
+            {
+                Print("Analog button change: ");
+                PrintN(Buttons.stick.value);
+            }
         }
     }
-
-    LastButtons = CurrentButtons;
-    delay(FrameDelay); 
 }
 
 
 
 void setup()
 {
+    using namespace Global;
+
     Serial.begin(9600);
     
 #if DEV_SLOW
@@ -135,20 +145,20 @@ void setup()
 
     // init buttons
     {
-        ButtonsID.buttonA = D1;
-        ButtonsID.buttonB = D2;
-        ButtonsID.buttonC = D3;
-        ButtonsID.buttonD = D4;
-        ButtonsID.analogStick = A0;
+        Buttons.buttonA.key = D1;
+        Buttons.buttonB.key = D2;
+        Buttons.buttonC.key = D3;
+        Buttons.buttonD.key = D4;
+        Buttons.stick.key = A0;
 
-        pinMode(ButtonsID.buttonA, INPUT_PULLUP);
-        pinMode(ButtonsID.buttonB, INPUT_PULLUP);
-        pinMode(ButtonsID.buttonC, INPUT_PULLUP);
-        pinMode(ButtonsID.buttonD, INPUT_PULLUP);
-        pinMode(ButtonsID.analogStick, INPUT);
+        pinMode(Buttons.buttonA.key, INPUT_PULLUP);
+        pinMode(Buttons.buttonB.key, INPUT_PULLUP);
+        pinMode(Buttons.buttonC.key, INPUT_PULLUP);
+        pinMode(Buttons.buttonD.key, INPUT_PULLUP);
+        pinMode(Buttons.stick.key, INPUT);
 
-        ReadButtons(&CurrentButtons, &ButtonsID);
-        LastButtons = CurrentButtons;
+        uint32_t timestamp = millis();
+        ReadButtons(&Buttons, timestamp);
     }
 
     WiFi.mode(WIFI_STA);
@@ -163,14 +173,14 @@ void setup()
 #endif
 
 
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
         delay(500);
         Serial.println("Connecting to WiFi..");
     }
 
     Serial.println("Connected to the WiFi network");
 
-    SendMulticastMessage(&GlobalUdp, &GlobalIpMulticast);
-    delay(Seconds(1));
-    UdpReadMultipleMessages(&GlobalUdp, &GlobalLightCollection);
+    LastUdpMessageSentCycle = millis();
+    LastAnalogCalculationCycle = millis();
 }

@@ -9,15 +9,10 @@
 #endif
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
-#define Button_Read(Value) (!digitalRead(Value))
+#define ButtonSpecialDigitalRead(Value) (!digitalRead(Value))
 
-#define Framerate 20
-#define FrameDelay (1000 / Framerate)
-#define Seconds(Value) (Framerate * (Value))
-#define Minutes(Value) (Seconds((Value)) * Framerate)
-
-#define MEDIUM_BUFFER_SIZE 512
-#define BIG_BUFFER_SIZE 1024
+#define MediumBufferSize 512
+#define BigBufferSize 1024
 
 // Const Variables
 namespace Yeelight
@@ -27,20 +22,41 @@ namespace Yeelight
 };
 
 
+struct Button
+{
+    int key;
+    uint32_t changeTimestamp;
+    uint32_t lastChangeTimestamp;
+    bool value;
+    bool lastValue;
+};
+
+#define AnalogHistoryCount 512
+struct Analog_Button
+{
+    int key;
+    int value;
+    int lastValue;
+    int historyIndex;
+    int hotHistoryCount;
+    int16_t history[AnalogHistoryCount];
+};
+
 struct Button_Map 
 {
     union
     {
-        int buttons[5];
+        Button digitalButtons[4];
         struct
         {
-            int buttonA;
-            int buttonB;
-            int buttonC;
-            int buttonD;
-            int analogStick;
+            Button buttonA;
+            Button buttonB;
+            Button buttonC;
+            Button buttonD;
         };
     };
+
+    Analog_Button stick;
 };
 
 
@@ -77,3 +93,13 @@ struct Network_Clients
     WiFiClient clients[NETWORK_CLIENTS_COUNT];
     int currentOpenCount;
 };
+
+
+// helper functions
+inline int Abs(int a)
+{
+    if (a < 0)
+        return a * -1;
+
+    return a;
+}
