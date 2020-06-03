@@ -69,3 +69,4 @@ bool AreStringIdentical(const char *a, const char *b)
 
     return false;
 }
+

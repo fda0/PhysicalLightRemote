@@ -101,3 +101,4 @@ bool AnalogButtonComparison(Analog_Button *button)
     int margin = 10;
     return Abs(difference) > margin;
 }
+

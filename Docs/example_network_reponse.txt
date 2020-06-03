@@ -1,0 +1,39 @@
+HTTP/1.1 200 OK
+Cache-Control: max-age=3600
+Date: 
+Ext: 
+Location: yeelight://192.168.8.104:55443
+Server: POSIX UPnP/1.0 YGLC/1
+id: 0x0000000003626360
+model: mono
+fw_ver: 56
+support: get_prop set_default set_power toggle set_bright start_cf stop_cf set_scene cron_add cron_get cron_del set_adjust set_name
+power: on
+bright: 100
+color_mode: 2
+ct: 4000
+rgb: 0
+hue: 0
+sat: 0
+name: V2hpdGU=
+
+
+
+HTTP/1.1 200 OK
+Cache-Control: max-age=3600
+Date: 
+Ext: 
+Location: yeelight://192.168.8.103:55443
+Server: POSIX UPnP/1.0 YGLC/1
+id: 0x00000000045911b0
+model: color
+fw_ver: 70
+support: get_prop set_default set_power toggle set_bright start_cf stop_cf set_scene cron_add cron_get cron_del set_ct_abx set_rgb set_hsv set_adjust adjust_bright adjust_ct adjust_color set_music set_name
+power: on
+bright: 100
+color_mode: 2
+ct: 4000
+rgb: 16711680
+hue: 359
+sat: 100
+name: Q29sb3I=

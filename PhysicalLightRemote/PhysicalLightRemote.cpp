@@ -11,7 +11,6 @@
 #include "PLR_network.h"
 #include "PLR_light.h"
 #include "PLR_button.h"
-#include "PLR_command.h"
 #include "PLR_menu.h"
 
 
@@ -21,7 +20,7 @@ namespace Global
     Button_Map Buttons;
     Light_Collection LightCollection;
     Network_Clients NetworkClients;
-    Menu menu;
+    Menu_State Menu;
     WiFiUDP Udp;
     IPAddress IpMulticast(239, 255, 255, 250);
     uint32_t CycleCounter;
@@ -29,12 +28,14 @@ namespace Global
     uint32_t UdpRefreshPeriodMs = 1000;
     bool MulticastMessageSent;
     uint32_t LastUdpMessageSentCycle;
-    uint32_t LastAnalogMeasurementCycle;
+    uint32_t LastButtonMeasurementCycle;
     uint32_t LastAnalogCalculationCycle;
+ 
+
+    uint32_t DebugLastCycle;
+    uint32_t DebugFrameCount;
 }
 
-uint32_t DebugLastCycle;
-uint32_t DebugFrameCount;
 
 
 #define TimeElapsed(LastTime) (currentTimestamp - (LastTime))
@@ -42,8 +43,6 @@ void loop()
 {
     using namespace Global;
     uint32_t currentTimestamp = millis();
-
-    //timers
     CycleCounter += 1;
     DebugFrameCount += 1;
 
@@ -51,21 +50,17 @@ void loop()
     {
         if (TimeElapsed(LastUdpMessageSentCycle) > (UdpRefreshPeriodMs - 1000) && !MulticastMessageSent)
         {
-            Print("MULTICAST CycleCounter: ");
-            PrintN(CycleCounter);
             SendMulticastMessage(&Udp, &IpMulticast);
             MulticastMessageSent = true;
         }
 
         if (TimeElapsed(LastUdpMessageSentCycle) > UdpRefreshPeriodMs)
         {
-            Print("READING CycleCounter: ");
-            PrintN(CycleCounter);
             UdpReadMultipleMessages(&Udp, &LightCollection);
 
             MulticastMessageSent = false;
             LastUdpMessageSentCycle = currentTimestamp;
-            UdpRefreshPeriodMs = 5000;
+            UdpRefreshPeriodMs += (1000 * LightCollection.currentLightCount);
 
             // debug
             if (DebugFrameCount > 0)
@@ -88,32 +83,31 @@ void loop()
     
     // button handling
     {
-        ReadButtons(&Buttons, currentTimestamp);
-        if (TimeElapsed(LastAnalogMeasurementCycle) > 2)
+        if (TimeElapsed(LastButtonMeasurementCycle) > 2)
         {
-            LastAnalogMeasurementCycle = currentTimestamp;
+            LastButtonMeasurementCycle = currentTimestamp;
+            ReadButtons(&Buttons, currentTimestamp);
             CollectAnalogSamples(&Buttons.stick);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonA, currentTimestamp))
         {
-            CommandPower(&LightCollection, &NetworkClients);
-            PrintN("[LIGHT TOGGLE] Button one ON");
+            SetMode(&Menu, ModeA);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonB, currentTimestamp))
         {
-            PrintN("Button two ON");
+            SetMode(&Menu, ModeB);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonC, currentTimestamp))
         {
-            PrintN("Button three ON");
+            SetMode(&Menu, ModeC);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonD, currentTimestamp))
         {
-            PrintN("Button four ON");
+            SetMode(&Menu, ModeD);
         }
 
         if (TimeElapsed(LastAnalogCalculationCycle) > 125)
@@ -125,6 +119,8 @@ void loop()
             {
                 Print("Analog button change: ");
                 PrintN(Buttons.stick.value);
+                ProcessAnalogChange(&Menu, &LightCollection, 
+                                    &NetworkClients, Buttons.stick.value);
             }
         }
     }
@@ -188,5 +184,5 @@ void setup()
     uint32_t currentTime = millis();
     LastUdpMessageSentCycle = currentTime;
     LastAnalogCalculationCycle = currentTime;
-    LastAnalogMeasurementCycle = currentTime;
+    LastButtonMeasurementCycle = currentTime;
 }

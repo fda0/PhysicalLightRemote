@@ -70,6 +70,7 @@ void ParseUdpRead(Light_Collection *lightCollection, const char *buffer)
                     Features featuresBuffer = {0};
                     featuresBuffer.setPower = (FindFirstOf(buffer, SetPower, powerOffset) != -1);
                     featuresBuffer.setBright = (FindFirstOf(buffer, SetBright, powerOffset) != -1);
+                    featuresBuffer.setRgb = (FindFirstOf(buffer, SetRgb, powerOffset) != -1);
 
                     buffer += powerOffset + sizeof(powerTag) + 1;
                     bool isPowered = (*buffer == 'n');
@@ -93,13 +94,14 @@ void UdpReadMultipleMessages(WiFiUDP *udp, Light_Collection *lightCollection)
         char buffer[BigBufferSize] = {0};
         if (UdpRead(udp, buffer, sizeof(buffer)))
         {
-            PrintN("Got Message");
             ParseUdpRead(lightCollection, buffer);
         }
         else
         {
-            PrintN("End of Messages");
+            Print("End of Messages, received: ");
+            PrintN(networkReadIndex + 1);
             break;
         }
     }
 }
+

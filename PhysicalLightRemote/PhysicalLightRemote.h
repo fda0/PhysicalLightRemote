@@ -18,7 +18,8 @@
 namespace Yeelight
 {
     const char SetPower[] = "set_power";
-    const char SetBright[] = "set_bright"; 
+    const char SetBright[] = "set_bright";
+    const char SetRgb[] = "set_rgb";
 };
 
 
@@ -70,6 +71,7 @@ struct Features
 {
     bool setPower;
     bool setBright;
+    bool setRgb;
 };
 
 struct Light
@@ -103,7 +105,7 @@ enum Mode
 };
 
 #define MenuPageCount 1
-struct Menu
+struct Menu_State
 {
     int page;
     Mode mode;
@@ -118,3 +120,4 @@ inline int Abs(int a)
 
     return a;
 }
+
