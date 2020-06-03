@@ -80,18 +80,33 @@ struct Light
     bool isPowered;
 };
 
-#define LIGHT_COUNT 32
+#define LightCount 32
 struct Light_Collection
 {
-    Light lights[LIGHT_COUNT];
+    Light lights[LightCount];
     int currentLightCount;
 };
 
-#define NETWORK_CLIENTS_COUNT 16
+#define NetworkClientsCount 16
 struct Network_Clients
 {
-    WiFiClient clients[NETWORK_CLIENTS_COUNT];
+    WiFiClient clients[NetworkClientsCount];
     int currentOpenCount;
+};
+
+enum Mode
+{
+    ModeA,
+    ModeB,
+    ModeC,
+    ModeD
+};
+
+#define MenuPageCount 1
+struct Menu
+{
+    int page;
+    Mode mode;
 };
 
 

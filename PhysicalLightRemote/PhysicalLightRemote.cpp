@@ -12,6 +12,7 @@
 #include "PLR_light.h"
 #include "PLR_button.h"
 #include "PLR_command.h"
+#include "PLR_menu.h"
 
 
 // Global Variables
@@ -20,6 +21,7 @@ namespace Global
     Button_Map Buttons;
     Light_Collection LightCollection;
     Network_Clients NetworkClients;
+    Menu menu;
     WiFiUDP Udp;
     IPAddress IpMulticast(239, 255, 255, 250);
     uint32_t CycleCounter;

@@ -50,7 +50,7 @@ void CloseConnections(Network_Clients *networkClients)
 void SendCommand(Network_Clients *networkClients, const char *ipAddress, 
                  const char *method, const char *params)
 {
-    if (networkClients->currentOpenCount == NETWORK_CLIENTS_COUNT)
+    if (networkClients->currentOpenCount == NetworkClientsCount)
     {
         CloseConnections(networkClients);
     }
