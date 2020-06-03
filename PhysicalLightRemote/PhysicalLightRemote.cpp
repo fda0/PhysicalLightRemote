@@ -143,6 +143,24 @@ void setup()
     }
 #endif
 
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    // delay for DHCP
+    delay(1000); 
+
+
+#if CREATE_SERVER_TO_CONFIG_WIFI
+    WiFiManager wifiManager; 
+    wifiManager.autoConnect("ESP-CONF");  
+#endif
+
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(500);
+        Serial.println("Connecting to WiFi..");
+    }
+    Serial.println("Connected to the WiFi network");
+
     // init buttons
     {
         Buttons.buttonA.key = D1;
@@ -161,28 +179,11 @@ void setup()
         ReadButtons(&Buttons, timestamp);
     }
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    // delay for DHCP
-    delay(1000); 
-
-
-#if CREATE_SERVER_TO_CONFIG_WIFI
-    WiFiManager wifiManager; 
-    wifiManager.autoConnect("ESP-CONF");  
-#endif
-
-
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        Serial.println("Connecting to WiFi..");
-    }
-
-    Serial.println("Connected to the WiFi network");
-
     uint32_t currentTime = millis();
     LastUdpMessageSentCycle = currentTime;
     LastAnalogCalculationCycle = currentTime;
     LastButtonMeasurementCycle = currentTime;
+
+    Menu.mode = ModeD;
+    Menu.speed = 1;
 }

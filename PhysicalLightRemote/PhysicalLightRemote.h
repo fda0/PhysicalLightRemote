@@ -109,6 +109,7 @@ struct Menu_State
 {
     int page;
     Mode mode;
+    int speed;
 };
 
 
