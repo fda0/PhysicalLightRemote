@@ -118,7 +118,7 @@ struct Color
 struct Menu_State
 {
     int page;
-    int speed;
+    int smoothness;
     Mode mode;
     ColorChangeMode colorChangeMode;
     Color color;
@@ -127,7 +127,7 @@ struct Menu_State
 struct Save_State
 {
     int firstTime;
-    int speed;
+    int smoothness;
 };
 
 // helper functions

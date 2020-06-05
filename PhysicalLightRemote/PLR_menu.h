@@ -2,15 +2,15 @@
 // commands
 //
 
-void GetSpeedString(char *output, int speed)
+void GetSmoothnessString(char *output, int smoothness)
 {
-    if (30 > speed)
+    if (30 > smoothness)
     {
         sprintf(output, "\"sudden\", 1");
     }
     else
     {
-        sprintf(output, "\"smooth\", %d", speed);
+        sprintf(output, "\"smooth\", %d", smoothness);
     }
 }
 
@@ -108,11 +108,11 @@ void CommandChangeColor(Light_Collection *lightCollection,
 
         if (light->features.setRgb)
         {
-            char speedBuffer[SmallBufferSize];
-            GetSpeedString(speedBuffer, menu->speed);
+            char smoothnessBuffer[SmallBufferSize];
+            GetSmoothnessString(smoothnessBuffer, menu->smoothness);
 
             char paramBuffer[MediumBufferSize];
-            sprintf(paramBuffer, "%d, %s", rgb, speedBuffer);
+            sprintf(paramBuffer, "%d, %s", rgb, smoothnessBuffer);
             
             SendCommand(networkClients, light->ipAddress, Yeelight::SetRgb, paramBuffer);
         }
@@ -124,7 +124,7 @@ void CommandChangeColor(Light_Collection *lightCollection,
 
 void CommandChangeBrightness(Light_Collection *lightCollection, 
                              Network_Clients *networkClients, 
-                             int speed, float analogValue)
+                             int smoothness, float analogValue)
 {
     int brightness = analogValue * 100;
     if (brightness < 1)
@@ -138,11 +138,11 @@ void CommandChangeBrightness(Light_Collection *lightCollection,
     {
         Light *light = &lightCollection->lights[lightIndex];
 
-        char speedBuffer[SmallBufferSize];
-        GetSpeedString(speedBuffer, speed);
+        char smoothnessBuffer[SmallBufferSize];
+        GetSmoothnessString(smoothnessBuffer, smoothness);
 
         char paramBuffer[MediumBufferSize];
-        sprintf(paramBuffer, "%d, %s", brightness, speedBuffer);
+        sprintf(paramBuffer, "%d, %s", brightness, smoothnessBuffer);
         
         SendCommand(networkClients, light->ipAddress, Yeelight::SetBright, paramBuffer);
     }
@@ -153,7 +153,7 @@ void CommandChangeBrightness(Light_Collection *lightCollection,
 
 void CommandChangePowerState(Light_Collection *lightCollection, 
                       Network_Clients *networkClients, 
-                      int speed, float analogValue)
+                      int smoothness, float analogValue)
 {
     bool turnOffWhite = analogValue < 0.66f;
     bool turnOffColor = analogValue < 0.33f; 
@@ -164,14 +164,14 @@ void CommandChangePowerState(Light_Collection *lightCollection,
     {
         Light *light = &lightCollection->lights[lightIndex];
 
-        char speedBuffer[SmallBufferSize];
-        GetSpeedString(speedBuffer, speed);
+        char smoothnessBuffer[SmallBufferSize];
+        GetSmoothnessString(smoothnessBuffer, smoothness);
 
         bool powerOn = !(turnOffWhite) || ((!turnOffColor) && light->features.setRgb);
 
         char paramBuffer[MediumBufferSize];
         sprintf(paramBuffer, "\"%s\", %s", 
-                (powerOn ? "on" : "off"), speedBuffer);
+                (powerOn ? "on" : "off"), smoothnessBuffer);
 
         SendCommand(networkClients, light->ipAddress, Yeelight::SetPower, paramBuffer);
         light->isPowered = powerOn;
@@ -191,16 +191,16 @@ void CommandChangePowerState(Light_Collection *lightCollection,
 void LoadStateFromMemory(Save_State *save, Menu_State *menu)
 {
     EEPROM.get(0, *save);
-    menu->speed = Clamp<int>(save->speed, 1, 1000);
+    menu->smoothness = Clamp<int>(save->smoothness, 1, 1000);
 
     PrintN("Loaded from EEPROM");
 }
 
 void SaveCurrentStateToMemory(Save_State *save, Menu_State *menu)
 {
-    if (save->speed != menu->speed)
+    if (save->smoothness != menu->smoothness)
     {
-        save->speed  = menu->speed;
+        save->smoothness  = menu->smoothness;
 
         EEPROM.put(0, *save);
         EEPROM.commit();
@@ -263,9 +263,9 @@ void SetMode(Save_State *save, Menu_State *menu, Mode mode)
 }
 
 
-void SetSpeed(Menu_State *menu, float analogValue)
+void SetSmoothness(Menu_State *menu, float analogValue)
 {
-    menu->speed = (int)(analogValue * 1000);
+    menu->smoothness = (int)(analogValue * 1000);
 }
 
 
@@ -297,7 +297,7 @@ void ProcessAnalogChange(Menu_State *menu, Light_Collection *lightCollection,
         {
             PrintN("ModeB action, page 0 [set brightness]");
             CommandChangeBrightness(lightCollection, networkClients, 
-                                    menu->speed, normalized);
+                                    menu->smoothness, normalized);
         }
         else if (menu->mode == ModeC)
         {
@@ -307,7 +307,7 @@ void ProcessAnalogChange(Menu_State *menu, Light_Collection *lightCollection,
         {
             PrintN("ModeD action, page 0 [set power]");
             CommandChangePowerState(lightCollection, networkClients, 
-                                    menu->speed, normalized);
+                                    menu->smoothness, normalized);
         }
     }
     else if (menu->page == 1)
@@ -322,8 +322,8 @@ void ProcessAnalogChange(Menu_State *menu, Light_Collection *lightCollection,
         }
         else if (menu->mode == ModeC)
         {
-            PrintN("ModeC action, page 1 [set speed]");
-            SetSpeed(menu, normalized);
+            PrintN("ModeC action, page 1 [set smoothness]");
+            SetSmoothness(menu, normalized);
         }
         else if (menu->mode == ModeD)
         {

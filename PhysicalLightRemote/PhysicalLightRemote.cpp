@@ -202,6 +202,6 @@ void setup()
         PrintN(Save.firstTime);
 
         Save.firstTime = 0xCAFECAFE;
-        Menu.speed = 500;
+        Menu.smoothness = 500;
     }
 }
