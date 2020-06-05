@@ -21,6 +21,7 @@ namespace Yeelight
     const char SetPower[] = "set_power";
     const char SetBright[] = "set_bright";
     const char SetRgb[] = "set_rgb";
+    const char SetCtAbx[] = "set_ct_abx";
 };
 
 
@@ -66,6 +67,7 @@ struct Features
     bool setPower;
     bool setBright;
     bool setRgb;
+    bool setCtAbx;
 };
 
 struct Light

@@ -122,6 +122,34 @@ void CommandChangeColor(Light_Collection *lightCollection,
 }
 
 
+void CommandChangeColorTemperature(Light_Collection *lightCollection, 
+                                   Network_Clients *networkClients, 
+                                   int smoothness, float analogValue)
+{
+    int temperature = (analogValue * (6500 - 1700)) + 1700;
+
+    for (int lightIndex = 0;
+         lightIndex < lightCollection->currentLightCount;
+         ++lightIndex)
+    {
+        Light *light = &lightCollection->lights[lightIndex];
+
+        if (light->features.setCtAbx)
+        {
+            char smoothnessBuffer[SmallBufferSize];
+            GetSmoothnessString(smoothnessBuffer, smoothness);
+
+            char paramBuffer[MediumBufferSize];
+            sprintf(paramBuffer, "%d, %s", temperature, smoothnessBuffer);
+            
+            SendCommand(networkClients, light->ipAddress, Yeelight::SetCtAbx, paramBuffer);
+        }
+    }
+
+    CloseConnections(networkClients);
+}
+
+
 void CommandChangeBrightness(Light_Collection *lightCollection, 
                              Network_Clients *networkClients, 
                              int smoothness, float analogValue)
@@ -138,13 +166,16 @@ void CommandChangeBrightness(Light_Collection *lightCollection,
     {
         Light *light = &lightCollection->lights[lightIndex];
 
-        char smoothnessBuffer[SmallBufferSize];
-        GetSmoothnessString(smoothnessBuffer, smoothness);
+        if (light->features.setBright)
+        {
+            char smoothnessBuffer[SmallBufferSize];
+            GetSmoothnessString(smoothnessBuffer, smoothness);
 
-        char paramBuffer[MediumBufferSize];
-        sprintf(paramBuffer, "%d, %s", brightness, smoothnessBuffer);
-        
-        SendCommand(networkClients, light->ipAddress, Yeelight::SetBright, paramBuffer);
+            char paramBuffer[MediumBufferSize];
+            sprintf(paramBuffer, "%d, %s", brightness, smoothnessBuffer);
+            
+            SendCommand(networkClients, light->ipAddress, Yeelight::SetBright, paramBuffer);
+        }
     }
 
     CloseConnections(networkClients);
@@ -164,17 +195,20 @@ void CommandChangePowerState(Light_Collection *lightCollection,
     {
         Light *light = &lightCollection->lights[lightIndex];
 
-        char smoothnessBuffer[SmallBufferSize];
-        GetSmoothnessString(smoothnessBuffer, smoothness);
+        if (light->features.setPower)
+        {
+            char smoothnessBuffer[SmallBufferSize];
+            GetSmoothnessString(smoothnessBuffer, smoothness);
 
-        bool powerOn = !(turnOffWhite) || ((!turnOffColor) && light->features.setRgb);
+            bool powerOn = !(turnOffWhite) || ((!turnOffColor) && light->features.setRgb);
 
-        char paramBuffer[MediumBufferSize];
-        sprintf(paramBuffer, "\"%s\", %s", 
-                (powerOn ? "on" : "off"), smoothnessBuffer);
+            char paramBuffer[MediumBufferSize];
+            sprintf(paramBuffer, "\"%s\", %s", 
+                    (powerOn ? "on" : "off"), smoothnessBuffer);
 
-        SendCommand(networkClients, light->ipAddress, Yeelight::SetPower, paramBuffer);
-        light->isPowered = powerOn;
+            SendCommand(networkClients, light->ipAddress, Yeelight::SetPower, paramBuffer);
+            light->isPowered = powerOn;
+        }
     }
 
     CloseConnections(networkClients);
@@ -301,7 +335,9 @@ void ProcessAnalogChange(Menu_State *menu, Light_Collection *lightCollection,
         }
         else if (menu->mode == ModeC)
         {
-            PrintN("ModeC action, page 0");
+            PrintN("ModeC action, page 0 [set color temperature]");
+            CommandChangeColorTemperature(lightCollection, networkClients,
+                                          menu->smoothness, normalized);
         }
         else if (menu->mode == ModeD)
         {

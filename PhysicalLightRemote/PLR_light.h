@@ -24,6 +24,16 @@ void FillLightData(Light_Collection *lightCollection, int targetLightIndex,
         Print(SetBright);
         Print(", ");   
     }
+    if (light->features.setRgb)
+    {
+        Print(SetRgb);
+        Print(", ");   
+    }
+    if (light->features.setCtAbx)
+    {
+        Print(SetCtAbx);
+        Print(", ");   
+    }
     Print("], Power state: ");
     PrintN(light->isPowered);
 #endif
@@ -71,6 +81,7 @@ void ParseUdpRead(Light_Collection *lightCollection, const char *buffer)
                     featuresBuffer.setPower = (FindFirstOf(buffer, SetPower, powerOffset) != -1);
                     featuresBuffer.setBright = (FindFirstOf(buffer, SetBright, powerOffset) != -1);
                     featuresBuffer.setRgb = (FindFirstOf(buffer, SetRgb, powerOffset) != -1);
+                    featuresBuffer.setCtAbx = (FindFirstOf(buffer, SetCtAbx, powerOffset) != -1);
 
                     buffer += powerOffset + sizeof(powerTag) + 1;
                     bool isPowered = (*buffer == 'n');
