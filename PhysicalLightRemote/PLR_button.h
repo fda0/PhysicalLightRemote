@@ -100,10 +100,14 @@ bool DigitalButtonComparison(Button *button, uint32_t timestamp)
     return output;
 }
 
-bool AnalogButtonComparison(Analog_Button *button)
+bool AnalogButtonComparison(Analog_Button *button, Menu_State *menu)
 {
     int difference = button->value - button->lastValue;
     int margin = 10;
+    if ((menu->mode == ModeA) && (menu->page == 0))
+    {
+        margin = 3;
+    }
     return Abs(difference) > margin;
 }
 

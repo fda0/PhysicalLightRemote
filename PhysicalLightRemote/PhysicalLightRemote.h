@@ -60,13 +60,6 @@ struct Button_Map
     Analog_Button stick;
 };
 
-
-enum Light_Type
-{
-    Mono,
-    Color
-};
-
 struct Features
 {
     bool setPower;
@@ -76,7 +69,6 @@ struct Features
 
 struct Light
 {
-    Light_Type type;
     char ipAddress[16];
     Features features;
     bool isPowered;
@@ -105,12 +97,30 @@ enum Mode
     ModeD
 };
 
+enum ColorChangeMode
+{
+    ColorNone,
+    ColorRGB,
+    ColorR,
+    ColorG,
+    ColorB
+};
+
+struct Color
+{
+    float r;
+    float g;
+    float b;
+};
+
 #define MenuPageCount 1
 struct Menu_State
 {
     int page;
-    Mode mode;
     int speed;
+    Mode mode;
+    ColorChangeMode colorChangeMode;
+    Color color;
 };
 
 

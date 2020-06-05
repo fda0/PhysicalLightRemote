@@ -119,7 +119,7 @@ void loop()
             LastAnalogCalculationCycle = currentTimestamp;
 
             CalculateAnalogValue(&Buttons.stick);
-            if (AnalogButtonComparison(&Buttons.stick))
+            if (AnalogButtonComparison(&Buttons.stick, &Menu))
             {
                 Print("Analog button change: ");
                 PrintN(Buttons.stick.value);
