@@ -4,6 +4,7 @@
 #include <WiFiUdp.h>
 #include <WiFiManager.h>
 #include <WiFiClient.h>
+#include <EEPROM.h>
 // our files
 #include "PLR_config.h"
 #include "PhysicalLightRemote.h"
@@ -22,6 +23,7 @@ namespace Global
     Network_Clients NetworkClients;
     Menu_State Menu;
     WiFiUDP Udp;
+    Save_State Save;
     IPAddress IpMulticast(239, 255, 255, 250);
     uint32_t CycleCounter;
 
@@ -96,22 +98,22 @@ void loop()
 
         if(DigitalButtonComparison(&Buttons.buttonA, currentTimestamp))
         {
-            SetMode(&Menu, ModeA);
+            SetMode(&Save, &Menu, ModeA);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonB, currentTimestamp))
         {
-            SetMode(&Menu, ModeB);
+            SetMode(&Save, &Menu, ModeB);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonC, currentTimestamp))
         {
-            SetMode(&Menu, ModeC);
+            SetMode(&Save, &Menu, ModeC);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonD, currentTimestamp))
         {
-            SetMode(&Menu, ModeD);
+            SetMode(&Save, &Menu, ModeD);
         }
 
         if (TimeElapsed(LastAnalogCalculationCycle) > 125)
@@ -137,6 +139,7 @@ void setup()
     using namespace Global;
 
     Serial.begin(9600);
+    EEPROM.begin(sizeof(Save_State));
     
 #if DEV_SLOW
     for (int i = 0; i < 8; i++)
@@ -181,6 +184,8 @@ void setup()
 
         uint32_t timestamp = millis();
         ReadButtons(&Buttons, timestamp, true);
+        CollectAnalogSamples(&Buttons.stick);
+        CalculateAnalogValue(&Buttons.stick);
     }
 
     uint32_t currentTime = millis();
@@ -189,5 +194,14 @@ void setup()
     LastButtonMeasurementCycle = currentTime;
 
     Menu.mode = ModeD;
-    Menu.speed = 1;
+
+    LoadStateFromMemory(&Save, &Menu);
+    if (Save.firstTime != 0xCAFECAFE)
+    {
+        Print("Loaded first EEPROM config, ");
+        PrintN(Save.firstTime);
+
+        Save.firstTime = 0xCAFECAFE;
+        Menu.speed = 500;
+    }
 }

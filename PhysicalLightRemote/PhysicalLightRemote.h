@@ -11,6 +11,7 @@
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 #define ButtonSpecialDigitalRead(Value) (!digitalRead(Value))
 
+#define SmallBufferSize 256
 #define MediumBufferSize 512
 #define BigBufferSize 1024
 
@@ -123,6 +124,11 @@ struct Menu_State
     Color color;
 };
 
+struct Save_State
+{
+    int firstTime;
+    int speed;
+};
 
 // helper functions
 inline int Abs(int a)
@@ -133,3 +139,18 @@ inline int Abs(int a)
     return a;
 }
 
+template <class T>
+T Clamp(T value, T min, T max)
+{
+    if (value > max)
+    {
+        value = max;
+    }
+
+    if (value < min)
+    {
+        value = min;
+    }
+
+    return value;
+}

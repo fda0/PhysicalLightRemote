@@ -2,6 +2,19 @@
 // commands
 //
 
+void GetSpeedString(char *output, int speed)
+{
+    if (30 > speed)
+    {
+        sprintf(output, "\"sudden\", 1");
+    }
+    else
+    {
+        sprintf(output, "\"smooth\", %d", speed);
+    }
+}
+
+
 float NormalizeFromStepRange(float value, float stepRange, int step)
 {
     float output = (value - (stepRange * (step - 1))) / (stepRange);
@@ -95,9 +108,11 @@ void CommandChangeColor(Light_Collection *lightCollection,
 
         if (light->features.setRgb)
         {
+            char speedBuffer[SmallBufferSize];
+            GetSpeedString(speedBuffer, menu->speed);
+
             char paramBuffer[MediumBufferSize];
-            sprintf(paramBuffer, "%d, \"smooth\", %d", 
-                    rgb, menu->speed);
+            sprintf(paramBuffer, "%d, %s", rgb, speedBuffer);
             
             SendCommand(networkClients, light->ipAddress, Yeelight::SetRgb, paramBuffer);
         }
@@ -123,9 +138,11 @@ void CommandChangeBrightness(Light_Collection *lightCollection,
     {
         Light *light = &lightCollection->lights[lightIndex];
 
+        char speedBuffer[SmallBufferSize];
+        GetSpeedString(speedBuffer, speed);
+
         char paramBuffer[MediumBufferSize];
-        sprintf(paramBuffer, "%d, \"smooth\", %d", 
-                brightness, speed);
+        sprintf(paramBuffer, "%d, %s", brightness, speedBuffer);
         
         SendCommand(networkClients, light->ipAddress, Yeelight::SetBright, paramBuffer);
     }
@@ -146,14 +163,17 @@ void CommandChangePowerState(Light_Collection *lightCollection,
          ++lightIndex)
     {
         Light *light = &lightCollection->lights[lightIndex];
+
+        char speedBuffer[SmallBufferSize];
+        GetSpeedString(speedBuffer, speed);
+
         bool powerOn = !(turnOffWhite) || ((!turnOffColor) && light->features.setRgb);
 
         char paramBuffer[MediumBufferSize];
-        sprintf(paramBuffer, "\"%s\", \"smooth\", %d", 
-                (powerOn ? "on" : "off"), speed);
+        sprintf(paramBuffer, "\"%s\", %s", 
+                (powerOn ? "on" : "off"), speedBuffer);
 
         SendCommand(networkClients, light->ipAddress, Yeelight::SetPower, paramBuffer);
-
         light->isPowered = powerOn;
     }
 
@@ -167,10 +187,31 @@ void CommandChangePowerState(Light_Collection *lightCollection,
 // menu
 //
 
-void ChangePage(Menu_State *menu, bool forward)
+
+void LoadStateFromMemory(Save_State *save, Menu_State *menu)
+{
+    EEPROM.get(0, *save);
+    menu->speed = Clamp<int>(save->speed, 1, 1000);
+
+    PrintN("Loaded from EEPROM");
+}
+
+void SaveCurrentStateToMemory(Save_State *save, Menu_State *menu)
+{
+    if (save->speed != menu->speed)
+    {
+        save->speed  = menu->speed;
+
+        EEPROM.put(0, *save);
+        EEPROM.commit();
+        PrintN("Saved to EEPROM");
+    }
+}
+
+
+void ChangePage(Save_State *save, Menu_State *menu, bool forward)
 {
     menu->mode = ModeNone;
-
     if (forward)
     {
         menu->page += 1;
@@ -189,6 +230,8 @@ void ChangePage(Menu_State *menu, bool forward)
     {
         menu->page = MenuPageCount - 1;
     }
+
+    SaveCurrentStateToMemory(save, menu);
 }
 
 void IncreaseColorMode(Menu_State *menu)
@@ -200,7 +243,7 @@ void IncreaseColorMode(Menu_State *menu)
     }
 }
 
-void SetMode(Menu_State *menu, Mode mode)
+void SetMode(Save_State *save, Menu_State *menu, Mode mode)
 {
     menu->mode = mode;
     if (menu->mode == ModeA 
@@ -215,34 +258,21 @@ void SetMode(Menu_State *menu, Mode mode)
 
     Print("Mode changed to ");
     PrintN(mode);
+
+    SaveCurrentStateToMemory(save, menu);
 }
 
 
 void SetSpeed(Menu_State *menu, float analogValue)
 {
     menu->speed = (int)(analogValue * 1000);
-
-    if (menu->speed < 1)
-    {
-        menu->speed = 1;
-    }
 }
 
 
 float NormalizeAnalogValue(int rawAnalogValue)
 {
     float normalized = (float)rawAnalogValue / 1024.0f;
-
-    if (normalized < 0.0f)
-    {
-        normalized = 0.0f;
-    }
-
-    if (normalized > 1.0f)
-    {
-        normalized = 1.0f;
-    }
-
+    normalized = Clamp<float>(normalized, 0.0f, 1.0f);
     return normalized;
 }
 
