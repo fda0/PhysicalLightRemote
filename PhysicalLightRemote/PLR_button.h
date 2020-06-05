@@ -68,7 +68,7 @@ void CalculateAnalogValue(Analog_Button *stick)
 }
 
 
-void ReadButtons(Button_Map *buttons, uint32_t timestamp)
+void ReadButtons(Button_Map *buttons, uint32_t timestamp, bool doNewMeasurement)
 {
     // digital
     for (int buttonIndex = 0;
@@ -78,7 +78,10 @@ void ReadButtons(Button_Map *buttons, uint32_t timestamp)
         Button *button = &buttons->digitalButtons[buttonIndex]; 
 
         button->lastValue = button->value;
-        button->value = ButtonSpecialDigitalRead(button->key);
+        if (doNewMeasurement)
+        {
+            button->value = ButtonSpecialDigitalRead(button->key);
+        }
 
         if (button->value != button->lastValue)
         {
@@ -90,9 +93,11 @@ void ReadButtons(Button_Map *buttons, uint32_t timestamp)
 
 bool DigitalButtonComparison(Button *button, uint32_t timestamp)
 {
-    return (button->value != button->lastValue) 
+    bool output = (button->value != button->lastValue) 
             && button->value
             && ((timestamp - 200) > button->lastChangeTimestamp);
+
+    return output;
 }
 
 bool AnalogButtonComparison(Analog_Button *button)

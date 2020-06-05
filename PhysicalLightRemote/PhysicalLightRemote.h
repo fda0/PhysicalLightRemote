@@ -98,6 +98,7 @@ struct Network_Clients
 
 enum Mode
 {
+    ModeNone,
     ModeA,
     ModeB,
     ModeC,

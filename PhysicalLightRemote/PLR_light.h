@@ -98,8 +98,8 @@ void UdpReadMultipleMessages(WiFiUDP *udp, Light_Collection *lightCollection)
         }
         else
         {
-            Print("End of Messages, received: ");
-            PrintN(networkReadIndex + 1);
+            // Print("End of Messages, received: ");
+            // PrintN(networkReadIndex + 1);
             break;
         }
     }

@@ -86,8 +86,12 @@ void loop()
         if (TimeElapsed(LastButtonMeasurementCycle) > 2)
         {
             LastButtonMeasurementCycle = currentTimestamp;
-            ReadButtons(&Buttons, currentTimestamp);
+            ReadButtons(&Buttons, currentTimestamp, true);
             CollectAnalogSamples(&Buttons.stick);
+        }
+        else
+        {
+            ReadButtons(&Buttons, currentTimestamp, false);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonA, currentTimestamp))
@@ -176,7 +180,7 @@ void setup()
         pinMode(Buttons.stick.key, INPUT);
 
         uint32_t timestamp = millis();
-        ReadButtons(&Buttons, timestamp);
+        ReadButtons(&Buttons, timestamp, true);
     }
 
     uint32_t currentTime = millis();

@@ -60,6 +60,9 @@ void SendCommand(Network_Clients *networkClients, const char *ipAddress,
     char buffer[MediumBufferSize];
     sprintf(buffer, "{\"id\": 1, \"method\": \"%s\", \"params\":[%s]}", method, params);
 
+    Print("Full command sent: ");
+    PrintN(buffer);
+
     if (client->connect(ipAddress, 55443)) 
     {
         client->println(buffer);
