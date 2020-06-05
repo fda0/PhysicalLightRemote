@@ -10,6 +10,11 @@ void FillLightData(Light_Collection *lightCollection, int targetLightIndex,
     light->features = *featuresBuffer;
     light->isPowered = isPowered;
 
+    if (!light->features.setRgb)
+    {
+        lightCollection->hasAnyWhiteLight = true;
+    }
+
 #if DEV_PRINT
     Print("Adding new light with IP: ");
     Print(light->ipAddress);

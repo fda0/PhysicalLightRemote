@@ -113,6 +113,19 @@ void loop()
 
         if(DigitalButtonComparison(&Buttons.buttonD, currentTimestamp))
         {
+            // p0 power
+
+            if ((Menu.page == 0) &&
+                (LightCollection.currentLightCount > 0) &&
+                ((!LightCollection.hasAnyWhiteLight) || (Menu.mode == ModeD)))
+            {
+                float simulatedAnalog = 
+                    LightCollection.lights[0].isPowered ? 0.0f : 1.0f;
+
+                CommandChangePowerState(&LightCollection, &NetworkClients, 
+                                        Menu.smoothness, simulatedAnalog);
+            }
+
             SetMode(&Save, &Menu, ModeD);
         }
 
@@ -158,14 +171,16 @@ void setup()
 
 #if CREATE_SERVER_TO_CONFIG_WIFI
     WiFiManager wifiManager; 
-    wifiManager.autoConnect("ESP-CONF");  
+    wifiManager.autoConnect("YEELIGHT-REMOTE-CONF");  
 #endif
 
+    Serial.print("Connecting to WiFi");
     while (WiFi.status() != WL_CONNECTED)
     {
-        delay(500);
-        Serial.println("Connecting to WiFi..");
+        delay(100);
+        Serial.print(".");
     }
+    Serial.println("");
     Serial.println("Connected to the WiFi network");
 
     // init buttons
@@ -194,6 +209,8 @@ void setup()
     LastButtonMeasurementCycle = currentTime;
 
     Menu.mode = ModeD;
+    // DEBUG(mateusz)
+    // Menu.page = 0;
 
     LoadStateFromMemory(&Save, &Menu);
     if (Save.firstTime != 0xCAFECAFE)

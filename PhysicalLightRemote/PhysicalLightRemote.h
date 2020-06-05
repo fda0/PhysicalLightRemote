@@ -82,6 +82,7 @@ struct Light_Collection
 {
     Light lights[LightCount];
     int currentLightCount;
+    bool hasAnyWhiteLight;
 };
 
 #define NetworkClientsCount 16
