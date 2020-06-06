@@ -53,13 +53,15 @@ struct Button_Map
 {
     union
     {
-        Button digitalButtons[4];
+        Button digitalButtons[6];
         struct
         {
             Button buttonA;
             Button buttonB;
             Button buttonC;
             Button buttonD;
+            Button arrowA;
+            Button arrowB;
         };
     };
 

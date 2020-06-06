@@ -19,9 +19,9 @@ enum ColorFlow
 const PROGMEM int32_t cfloop_police[] = 
 {
     COLOR(1000, RGB(0, 0, 255)),
-    SLEEP(3000),
+    SLEEP(1000),
     COLOR(1000, RGB(255, 0, 0)),
-    SLEEP(3000)
+    SLEEP(1000)
 };
 
 

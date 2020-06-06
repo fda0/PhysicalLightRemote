@@ -95,7 +95,7 @@ bool DigitalButtonComparison(Button *button, uint32_t timestamp)
 {
     bool output = (button->value != button->lastValue) 
             && button->value
-            && ((timestamp - 200) > button->lastChangeTimestamp);
+            && ((timestamp - 75) > button->lastChangeTimestamp);
 
     return output;
 }
@@ -103,7 +103,7 @@ bool DigitalButtonComparison(Button *button, uint32_t timestamp)
 bool AnalogButtonComparison(Analog_Button *button, Menu_State *menu)
 {
     int difference = button->value - button->lastValue;
-    int margin = 10;
+    int margin = 5;
     if ((menu->mode == ModeA) && (menu->page == 0))
     {
         margin = 3;

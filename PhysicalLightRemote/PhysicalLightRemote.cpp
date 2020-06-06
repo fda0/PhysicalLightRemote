@@ -97,6 +97,16 @@ void loop()
             ReadButtons(&Buttons, currentTimestamp, false);
         }
 
+        if(DigitalButtonComparison(&Buttons.arrowA, currentTimestamp))
+        {
+            ChangePage(&Save, &Menu, false);
+        }
+
+        if(DigitalButtonComparison(&Buttons.arrowB, currentTimestamp))
+        {
+            ChangePage(&Save, &Menu, true);
+        }
+
         if(DigitalButtonComparison(&Buttons.buttonA, currentTimestamp))
         {
             // color change for page 0
@@ -112,18 +122,7 @@ void loop()
         if(DigitalButtonComparison(&Buttons.buttonC, currentTimestamp))
         {
             // color temp for page 0
-
-            // DEBUG(MATEUSZ)
-            if (Menu.page == 1)
-            {
-                ChangePage(&Save, &Menu, false);
-            }
-            else
-            {
-                ChangePage(&Save, &Menu, true);
-            }
-
-            // SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeC);
+            SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeC);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonD, currentTimestamp))
@@ -200,12 +199,16 @@ void setup()
 
     // init buttons
     {
-        Buttons.buttonA.key = D1;
-        Buttons.buttonB.key = D2;
-        Buttons.buttonC.key = D3;
-        Buttons.buttonD.key = D4;
-        Buttons.stick.key = A0;
+        Buttons.arrowA.key  = D2;
+        Buttons.arrowB.key  = D1; 
+        Buttons.buttonA.key = D5;
+        Buttons.buttonB.key = D7;
+        Buttons.buttonC.key = D4;
+        Buttons.buttonD.key = D6;
+        Buttons.stick.key   = A0;
 
+        pinMode(Buttons.arrowA.key, INPUT_PULLUP);
+        pinMode(Buttons.arrowB.key, INPUT_PULLUP);
         pinMode(Buttons.buttonA.key, INPUT_PULLUP);
         pinMode(Buttons.buttonB.key, INPUT_PULLUP);
         pinMode(Buttons.buttonC.key, INPUT_PULLUP);
@@ -222,8 +225,6 @@ void setup()
     LastUdpMessageSentCycle = currentTime;
     LastAnalogCalculationCycle = currentTime;
     LastButtonMeasurementCycle = currentTime;
-
-    Menu.mode = ModeD;
 
     LoadStateFromMemory(&Save, &Menu);
     if (Save.firstTime != 0xCAFECAFE)
