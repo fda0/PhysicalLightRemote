@@ -8,6 +8,7 @@
 // our files
 #include "PLR_config.h"
 #include "PhysicalLightRemote.h"
+#include "PLR_color_flow.h"
 #include "PLR_string.h"
 #include "PLR_network.h"
 #include "PLR_light.h"
@@ -98,22 +99,36 @@ void loop()
 
         if(DigitalButtonComparison(&Buttons.buttonA, currentTimestamp))
         {
-            SetMode(&Save, &Menu, ModeA);
+            // color change for page 0
+            SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeA);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonB, currentTimestamp))
         {
-            SetMode(&Save, &Menu, ModeB);
+            // brightness for page 0
+            SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeB);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonC, currentTimestamp))
         {
-            SetMode(&Save, &Menu, ModeC);
+            // color temp for page 0
+
+            // DEBUG(MATEUSZ)
+            if (Menu.page == 1)
+            {
+                ChangePage(&Save, &Menu, false);
+            }
+            else
+            {
+                ChangePage(&Save, &Menu, true);
+            }
+
+            // SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeC);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonD, currentTimestamp))
         {
-            // p0 power
+            // power for page 0
 
             if ((Menu.page == 0) &&
                 (LightCollection.currentLightCount > 0) &&
@@ -126,7 +141,7 @@ void loop()
                                         Menu.smoothness, simulatedAnalog);
             }
 
-            SetMode(&Save, &Menu, ModeD);
+            SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeD);
         }
 
         if (TimeElapsed(LastAnalogCalculationCycle) > 125)
@@ -209,8 +224,6 @@ void setup()
     LastButtonMeasurementCycle = currentTime;
 
     Menu.mode = ModeD;
-    // DEBUG(mateusz)
-    // Menu.page = 0;
 
     LoadStateFromMemory(&Save, &Menu);
     if (Save.firstTime != 0xCAFECAFE)

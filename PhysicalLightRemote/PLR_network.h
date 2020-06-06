@@ -58,7 +58,7 @@ void SendCommand(Network_Clients *networkClients, const char *ipAddress,
     WiFiClient *client = &networkClients->clients[networkClients->currentOpenCount++];
 
     char buffer[MediumBufferSize];
-    sprintf(buffer, "{\"id\": 1, \"method\": \"%s\", \"params\":[%s]}", method, params);
+    sprintf(buffer, "{\"id\": 1, \"method\": \"%s\", \"params\":[%s]}\r\n", method, params);
 
     Print("Full command sent: ");
     PrintN(buffer);

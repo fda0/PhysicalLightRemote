@@ -5,7 +5,7 @@
 
 // compile config
 #define DEV_PRINT 1
-#define DEV_SLOW 1
+#define DEV_SLOW 0
 
 #define CREATE_SERVER_TO_CONFIG_WIFI 0
 

@@ -31,9 +31,13 @@ int FindFirstOf(const char* inputStr, const char* searchStr, int maxSearchRange 
 
 void CatString(char *output, const char *source, int startPos, int length)
 {
-    for (int i = startPos; i < (startPos + length); ++i)
+    int outputIndex = 0;
+    for (int sourceIndex = startPos;
+         sourceIndex < (startPos + length);
+         ++sourceIndex)
     {
-        output[i] = source[i];
+        output[outputIndex] = source[sourceIndex];
+        outputIndex += 1;
     }
 
     if (output[length - 1] != 0)
@@ -70,3 +74,13 @@ bool AreStringIdentical(const char *a, const char *b)
     return false;
 }
 
+int GetZeroPosition(const char *string)
+{
+    int pos = 0;
+    while (string[pos] != 0)
+    {
+        pos += 1;
+    }
+
+    return pos;
+}

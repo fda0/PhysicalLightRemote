@@ -108,6 +108,10 @@ bool AnalogButtonComparison(Analog_Button *button, Menu_State *menu)
     {
         margin = 3;
     }
+    else if (menu->page > 0)
+    {
+        margin = 1;
+    }
     return Abs(difference) > margin;
 }
 

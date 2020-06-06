@@ -14,6 +14,8 @@
 #define SmallBufferSize 256
 #define MediumBufferSize 512
 #define BigBufferSize 1024
+#define MegaBufferSize (BigBufferSize * 4)
+char MegaBuffer[MegaBufferSize];
 
 // Const Variables
 namespace Yeelight
@@ -22,6 +24,8 @@ namespace Yeelight
     const char SetBright[] = "set_bright";
     const char SetRgb[] = "set_rgb";
     const char SetCtAbx[] = "set_ct_abx";
+    const char StartCf[] = "start_cf";
+    const char StopCf[] = "stop_cf";
 };
 
 
@@ -68,6 +72,8 @@ struct Features
     bool setBright;
     bool setRgb;
     bool setCtAbx;
+    bool startCf;
+    bool stopCf;
 };
 
 struct Light
@@ -75,6 +81,7 @@ struct Light
     char ipAddress[16];
     Features features;
     bool isPowered;
+    int brightness;
 };
 
 #define LightCount 32
@@ -117,7 +124,7 @@ struct Color
     float b;
 };
 
-#define MenuPageCount 1
+#define MenuPageCount 2
 struct Menu_State
 {
     int page;

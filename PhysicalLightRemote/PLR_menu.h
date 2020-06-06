@@ -15,6 +15,84 @@ void GetSmoothnessString(char *output, int smoothness)
 }
 
 
+char* GetZeroPointer(char *input)
+{
+    while (*input != 0)
+    {
+        input += 1;
+    }
+
+    return input;
+}
+
+void CommandStartColorFlowLoop(Light_Collection *lightCollection, 
+                               Network_Clients *networkClients, 
+                               Menu_State *menu, ColorFlow colorFlow)
+{
+    const int32_t *loop = cfloop_police;
+    int arrayCount = ArrayCount(cfloop_police);
+    int rowCount = arrayCount / 4;
+
+    MegaBuffer[0] = 0;
+    char *bufferPart = MegaBuffer;
+    sprintf(MegaBuffer, "0, 0, \"");
+
+    for (int row = 0; row < rowCount; ++row)
+    {
+        bufferPart = GetZeroPointer(bufferPart);
+        int rowOffset = row * 4;
+        
+        // type
+        int type = (int32_t)pgm_read_dword(loop + rowOffset + 1);
+
+        // delay
+        float speedRatio = Clamp<int>((float)menu->smoothness, 10, 1000) / 1000.0f;
+        int maxDelay = (int32_t)pgm_read_dword(loop + rowOffset);
+        int delay = (int)((float)maxDelay * speedRatio);
+        if ((type == 7) && (delay < 50))
+        {
+            continue;
+        }
+        else if (delay < 50)
+        {
+            delay = 50;
+        }
+
+        // brightness
+        int brightness = (int32_t)pgm_read_dword(loop + rowOffset + 3);
+        if (brightness == -1 && (lightCollection->currentLightCount > 0))
+        {
+            brightness = lightCollection->lights[0].brightness;
+        }
+
+        sprintf(bufferPart, "%d,%d,%d,%d,", 
+                delay,
+                type, 
+                (int32_t)pgm_read_dword(loop + rowOffset + 2), 
+                brightness);
+    }
+
+    int endZeroPos = GetZeroPosition(MegaBuffer);
+    MegaBuffer[endZeroPos - 1] = '\"';
+
+    for (int lightIndex = 0;
+     lightIndex < lightCollection->currentLightCount;
+     ++lightIndex)
+    {
+        Light *light = &lightCollection->lights[lightIndex];
+
+        if (light->features.setRgb && light->features.startCf)
+        {
+            SendCommand(networkClients, light->ipAddress, Yeelight::StartCf, MegaBuffer);
+        }
+    }
+
+    CloseConnections(networkClients);
+}
+
+
+
+
 float NormalizeFromStepRange(float value, float stepRange, int step)
 {
     float output = (value - (stepRange * (step - 1))) / (stepRange);
@@ -22,8 +100,8 @@ float NormalizeFromStepRange(float value, float stepRange, int step)
 }
 
 void CommandChangeColor(Light_Collection *lightCollection, 
-                             Network_Clients *networkClients, 
-                             Menu_State *menu, float analogValue)
+                        Network_Clients *networkClients, 
+                        Menu_State *menu, float analogValue)
 {
     if (menu->colorChangeMode == ColorRGB)
     {
@@ -175,6 +253,7 @@ void CommandChangeBrightness(Light_Collection *lightCollection,
             sprintf(paramBuffer, "%d, %s", brightness, smoothnessBuffer);
             
             SendCommand(networkClients, light->ipAddress, Yeelight::SetBright, paramBuffer);
+            light->brightness = brightness;
         }
     }
 
@@ -232,7 +311,7 @@ void LoadStateFromMemory(Save_State *save, Menu_State *menu)
 
 void SaveCurrentStateToMemory(Save_State *save, Menu_State *menu)
 {
-    if (save->smoothness != menu->smoothness)
+    if (Abs(save->smoothness - menu->smoothness) > 200)
     {
         save->smoothness  = menu->smoothness;
 
@@ -265,6 +344,9 @@ void ChangePage(Save_State *save, Menu_State *menu, bool forward)
         menu->page = MenuPageCount - 1;
     }
 
+    Print("ChangePage() -> current page: ");
+    PrintN(menu->page);
+
     SaveCurrentStateToMemory(save, menu);
 }
 
@@ -277,29 +359,46 @@ void IncreaseColorMode(Menu_State *menu)
     }
 }
 
-void SetMode(Save_State *save, Menu_State *menu, Mode mode)
+void SetMode(Save_State *save, Menu_State *menu, 
+             Light_Collection *lightCollection, Network_Clients *networkClients,
+             Mode mode)
 {
-    menu->mode = mode;
-    if (menu->mode == ModeA 
-        && menu->page == 0)
+    if (menu->page == 0)
     {
-        IncreaseColorMode(menu);
+        menu->mode = mode;
+        if (menu->mode == ModeA)
+        {
+            IncreaseColorMode(menu);
+        }
+        else
+        {
+            menu->colorChangeMode = ColorNone;
+        }
+
+        Print("Mode changed to ");
+        PrintN(mode);
+    }
+    else if (menu->page == 1)
+    {
+        if (mode == ModeA)
+        {
+            PrintN("ModeA action, page 1 [CF Police]");
+            CommandStartColorFlowLoop(lightCollection, networkClients, 
+                                      menu, CF_Police);
+        }
     }
     else
     {
-        menu->colorChangeMode = ColorNone;
+        PrintN("Only Page 0 and 1 are implemented");
     }
-
-    Print("Mode changed to ");
-    PrintN(mode);
-
-    SaveCurrentStateToMemory(save, menu);
 }
 
 
 void SetSmoothness(Menu_State *menu, float analogValue)
 {
     menu->smoothness = (int)(analogValue * 1000);
+    Print("New smoothness: ");
+    PrintN(menu->smoothness);
 }
 
 
@@ -346,30 +445,9 @@ void ProcessAnalogChange(Menu_State *menu, Light_Collection *lightCollection,
                                     menu->smoothness, normalized);
         }
     }
-    else if (menu->page == 1)
-    {
-        if (menu->mode == ModeA)
-        {
-            PrintN("ModeA action, page 1");
-        }
-        else if (menu->mode == ModeB)
-        {
-            PrintN("ModeB action, page 1");
-        }
-        else if (menu->mode == ModeC)
-        {
-            PrintN("ModeC action, page 1 [set smoothness]");
-            SetSmoothness(menu, normalized);
-        }
-        else if (menu->mode == ModeD)
-        {
-            PrintN("ModeD action, page 1");
-        }
-    }
     else
     {
-        PrintN("Only pages 0 and 1 are implemented");
-
+        SetSmoothness(menu, normalized);
     }
 }
 
