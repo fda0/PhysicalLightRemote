@@ -8,8 +8,12 @@
 #define PrintRaw(Text, Len)
 #endif
 
+
+#define RGB(Red, Green, Blue) (((Red) << 16) | ((Green) << 8) | (Blue))
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 #define ButtonSpecialDigitalRead(Value) (!digitalRead(Value))
+
+#define LongColorStepMS 10
 
 #define SmallBufferSize 256
 #define MediumBufferSize 512
@@ -121,9 +125,16 @@ enum ColorChangeMode
 
 struct Color
 {
-    float r;
-    float g;
-    float b;
+    union
+    {
+        float array[3];
+        struct
+        {
+            float r;
+            float g;
+            float b;
+        };
+    };
 };
 
 #define MenuPageCount 2
@@ -141,6 +152,37 @@ struct Save_State
     int firstTime;
     int smoothness;
 };
+
+
+enum Active_Effect
+{
+    EffectNone,
+    EffectRandomColors
+};
+
+struct Random_Color_Struct
+{
+    Color color;
+    int victimIndex;
+    int thiefIndex;
+    float *victimColor;
+    float *thiefColor;
+
+    int stealTargetAmmount;
+    int stolenAmmount;
+};
+
+struct Long_Effect
+{
+    uint32_t lastCycleTimestamp;
+    Active_Effect active;
+    uint32_t timeSinceLastSingal;
+    bool isRunning;
+
+    // effect-specific
+    Random_Color_Struct randomColor;
+};
+
 
 // helper functions
 inline int Abs(int a)
@@ -165,4 +207,26 @@ T Clamp(T value, T min, T max)
     }
 
     return value;
+}
+
+
+int Wrap(int value, int wrapValue)
+{
+    value %= wrapValue;
+    value += wrapValue;
+    value %= wrapValue;
+    
+    return value;
+}
+
+int Min(int a, int b)
+{
+    if (a > b)
+    {
+        return b;
+    }
+    else
+    {
+        return a;
+    }
 }

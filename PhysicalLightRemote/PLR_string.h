@@ -84,3 +84,13 @@ int GetZeroPosition(const char *string)
 
     return pos;
 }
+
+char* GetZeroPointer(char *input)
+{
+    while (*input != 0)
+    {
+        input += 1;
+    }
+
+    return input;
+}

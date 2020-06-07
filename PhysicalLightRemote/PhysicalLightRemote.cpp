@@ -8,11 +8,12 @@
 // our files
 #include "PLR_config.h"
 #include "PhysicalLightRemote.h"
-#include "PLR_color_flow.h"
 #include "PLR_string.h"
 #include "PLR_network.h"
 #include "PLR_light.h"
 #include "PLR_button.h"
+#include "PLR_color_flow.h"
+#include "PLR_command.h"
 #include "PLR_menu.h"
 
 
@@ -25,6 +26,7 @@ namespace Global
     Menu_State Menu;
     WiFiUDP Udp;
     Save_State Save;
+    Long_Effect LongEffect;
     IPAddress IpMulticast(239, 255, 255, 250);
     uint32_t CycleCounter;
 
@@ -48,6 +50,8 @@ void loop()
     uint32_t currentTimestamp = millis();
     CycleCounter += 1;
     DebugFrameCount += 1;
+
+
 
     // periodic udp mutlicast task
     {
@@ -84,8 +88,12 @@ void loop()
         }
     }
     
+
+
+
     // button handling
     {
+
         if (TimeElapsed(LastButtonMeasurementCycle) > 2)
         {
             LastButtonMeasurementCycle = currentTimestamp;
@@ -99,30 +107,35 @@ void loop()
 
         if(DigitalButtonComparison(&Buttons.arrowA, currentTimestamp))
         {
-            ChangePage(&Save, &Menu, false);
+            ChangePage(&Save, &Menu, &LightCollection, 
+                       &NetworkClients, &LongEffect, false);
         }
 
         if(DigitalButtonComparison(&Buttons.arrowB, currentTimestamp))
         {
-            ChangePage(&Save, &Menu, true);
+            ChangePage(&Save, &Menu, &LightCollection, 
+                       &NetworkClients, &LongEffect, true);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonA, currentTimestamp))
         {
             // color change for page 0
-            SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeA);
+            SetMode(&Save, &Menu, &LightCollection, 
+                    &NetworkClients, &LongEffect, ModeA);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonB, currentTimestamp))
         {
             // brightness for page 0
-            SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeB);
+            SetMode(&Save, &Menu, &LightCollection,  
+                    &NetworkClients, &LongEffect, ModeB);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonC, currentTimestamp))
         {
             // color temp for page 0
-            SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeC);
+            SetMode(&Save, &Menu, &LightCollection,   
+                    &NetworkClients, &LongEffect, ModeC);
         }
 
         if(DigitalButtonComparison(&Buttons.buttonD, currentTimestamp))
@@ -140,7 +153,8 @@ void loop()
                                         Menu.smoothness, simulatedAnalog);
             }
 
-            SetMode(&Save, &Menu, &LightCollection, &NetworkClients, ModeD);
+            SetMode(&Save, &Menu, &LightCollection,   
+                    &NetworkClients, &LongEffect, ModeD);
         }
 
         if (TimeElapsed(LastAnalogCalculationCycle) > 125)
@@ -157,6 +171,26 @@ void loop()
             }
         }
     }
+
+
+
+
+    // long effects
+    if (TimeElapsed(LongEffect.lastCycleTimestamp) > LongColorStepMS)
+    {
+        LongEffect.lastCycleTimestamp = currentTimestamp;
+
+        switch (LongEffect.active)
+        {
+            case EffectRandomColors:
+            {
+                CommandProcessRandomColorsStep(&LightCollection, &NetworkClients, 
+                                               &Menu, &LongEffect);
+            } break;
+        }
+    }
+
+
 }
 
 
@@ -220,6 +254,8 @@ void setup()
         CollectAnalogSamples(&Buttons.stick);
         CalculateAnalogValue(&Buttons.stick);
     }
+
+    randomSeed(Buttons.stick.value);
 
     uint32_t currentTime = millis();
     LastUdpMessageSentCycle = currentTime;
