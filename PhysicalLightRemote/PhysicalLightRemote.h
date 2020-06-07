@@ -1,11 +1,19 @@
 #if DEV_PRINT
 #define PrintN(Text) Serial.println((Text))
+
 #define Print(Text) Serial.print((Text))
+
 #define PrintRaw(Text, Len) Serial.write((char *)(Text), (Len))
+
+#define PrintColor(Color) Print("R: "); Print(Color.r);\
+Print(", G: ");Print(Color.g);\
+Print(", B: ");PrintN(Color.b)
+
 #else
 #define PrintN(Text)
 #define Print(Text)
 #define PrintRaw(Text, Len)
+#define PrintColor(Color)
 #endif
 
 
@@ -163,13 +171,11 @@ enum Active_Effect
 struct Random_Color_Struct
 {
     Color color;
-    int victimIndex;
-    int thiefIndex;
     float *victimColor;
     float *thiefColor;
 
-    int stealTargetAmmount;
-    int stolenAmmount;
+    float stealTargetAmount;
+    float stolenAmount;
 };
 
 struct Long_Effect
@@ -219,7 +225,8 @@ int Wrap(int value, int wrapValue)
     return value;
 }
 
-int Min(int a, int b)
+template <class T>
+T Min(T a, T b)
 {
     if (a > b)
     {
@@ -229,4 +236,26 @@ int Min(int a, int b)
     {
         return a;
     }
+}
+
+template <class T>
+T Max(T a, T b)
+{
+    if (a < b)
+    {
+        return b;
+    }
+    else
+    {
+        return a;
+    }
+}
+
+uint32_t ColorToRGB(Color color)
+{
+    uint32_t red = (uint32_t)(color.r * 255.0f);
+    uint32_t green = (uint32_t)(color.g * 255.0f);
+    uint32_t blue = (uint32_t)(color.b * 255.0f);
+
+    return RGB(red, green, blue);
 }

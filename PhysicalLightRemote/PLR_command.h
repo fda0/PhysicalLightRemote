@@ -12,35 +12,50 @@ void GetSmoothnessString(char *output, int smoothness)
 
 void RandomColorsGetRandomTargets(Random_Color_Struct *rc, bool firstInit)
 {
-    rc->stolenAmmount = 0;
+    const int colorCount = 3;
+    rc->stolenAmount = 0;
 
-    int skipColor = random(0, colorCount - 1);
-    int direction = (random(0, 1) == 1) ? 1 : -1;
-
-    int victimIndex = Wrap(skipColor + direction, colorCount);
-    int thiefIndex = Wrap(victimIndex + direction, colorCount);
-    rc->victimColor = rc->color.array[victimIndex];
-    rc->thiefColor = rc->color.array[thiefIndex];
-
-    if (firstInit)
+    int skipColorIndex = random(0, colorCount);
+    int direction = (random(0, 2) == 1) ? 1 : -1;
+    do
     {
-        int biggerColor = random(127, 255);
-        *victimColor = biggerColor;
-        *thiefColor = maxColorSum - biggerColor;
-    }
+        int victimIndex = Wrap(skipColorIndex + direction, colorCount);
+        int thiefIndex = Wrap(victimIndex + direction, colorCount);
+        rc->victimColor = &rc->color.array[victimIndex];
+        rc->thiefColor = &rc->color.array[thiefIndex];
 
-    int maxSteal = Min(*rc->victimColor, *rc->thiefColor);
-    rc->stealTargetAmmout = random((maxSteal / 2), maxSteal);
+        if (firstInit)
+        {
+            float biggerColor = (float)random(127, 256) / 255.0f;
+            *rc->victimColor = biggerColor;
+            *rc->thiefColor = 1.0f - biggerColor;
+        }
+
+        if (*rc->victimColor < 0.33f)
+        {
+            skipColorIndex += 1;
+            PrintN("Color re-shuffle - small victim");
+        }
+        else if (*rc->thiefColor > 0.8f)
+        {
+            direction *= -1;
+            PrintN("Color re-shuffle - too big thief");
+        }
+    } while (*rc->victimColor < 0.33f || (*rc->thiefColor > 0.8f));
+
+
+    float maxSteal = (Min<float>(*rc->victimColor, (1.0f - *rc->thiefColor))) * 1000.0f;
+    rc->stealTargetAmount = ((float)random((maxSteal * 0.75f), maxSteal - 5) / 1000.0f);
+
+    Print("Target Steal: ");
+    PrintN(rc->stealTargetAmount);
 }
 
 void CommandProcessRandomColorsStep(Light_Collection *lightCollection, 
                                     Network_Clients *networkClients, 
                                     Menu_State *menu, Long_Effect *effect)
 {
-    const int colorCount = ArrayCount(effect->rc.color.array);
-    const int maxColorSum = 255;
-
-    Random_Color_Struct *rc = effect->randomColor;
+    Random_Color_Struct *rc = &effect->randomColor;
 
     if (!effect->isRunning)
     {
@@ -50,32 +65,79 @@ void CommandProcessRandomColorsStep(Light_Collection *lightCollection,
 
     effect->timeSinceLastSingal += LongColorStepMS;
 
-    int maxDelay = 5000;
-    float speedRatio = Clamp<float>((float)menu->smoothness, 10, 1000) / 1000.0f;
-    int currentDelay = Clamp<int>((int)((float)maxDelay * speedRatio), 1, 1000);
-    
-    if (currentDelay <= effect->timeSinceLastSingal)
+    int smoothness = Clamp<int>(menu->smoothness, 10, 1000);
+    float speedRatio = (float)smoothness / 1000.0f;
+    int delay = (smoothness / 2) + 500;
+
+    if (delay <= effect->timeSinceLastSingal)
     {
         effect->timeSinceLastSingal = 0;
 
-        float inverseRatio = 1.0f - speedRatio;
+        float inverseRatio = (1.0f - speedRatio) * 0.9f + 0.1f;
+        float colorStep = 0.3f * inverseRatio;
 
-        Print("Color step without clamp: ");
-        PrintN((int)(20.0f * inverseRatio));
+        Print("Speed ratio: ");
+        Print(speedRatio);
+        Print(", Inverse ratio: ");
+        Print(inverseRatio);
+        Print(", Color step without clamp: ");
+        PrintN(colorStep);
+        
+        Print("Target Steal: ");
+        Print(rc->stealTargetAmount);
+        Print(", Stolen amount: ");
+        Print(rc->stolenAmount);
+        
+        float leftToSteal = rc->stealTargetAmount - rc->stolenAmount;
+        bool isLastSteal = (colorStep > leftToSteal);
+        
+        Print(", Left to steal: ");
+        PrintN(leftToSteal);
 
-        int colorStep = Clamp<int>((int)(20.0f * inverseRatio), 1, 255);
-        int leftToSteal = rc->stealTargetAmmout - rc->stolenAmmount;
-        bool lastSteal = (colorStep > leftToSteal) 
-        if (lastSteal)
+        if (isLastSteal)
         {
             colorStep = leftToSteal;
+         
+            Print("Color step post clamp: ");
+            PrintN(colorStep);
         }
 
-        rc->victimColor -= colorStep;
-        rc->thiefColor += colorStep;
+        *rc->victimColor -= colorStep;
+        *rc->thiefColor += colorStep;
+        rc->stolenAmount += colorStep;
+
+        uint32_t rgb = ColorToRGB(rc->color);
+        PrintColor(rc->color);
+
+        // TODO(mateusz) check if lack of float precision made 
+        // this vales bad and guard check the color sum > < 1f
+
+
+        for (int lightIndex = 0;
+             lightIndex < lightCollection->currentLightCount;
+             ++lightIndex)
+        {
+            Light *light = &lightCollection->lights[lightIndex];
+
+            if (light->features.setRgb)
+            {
+                char smoothnessBuffer[SmallBufferSize];
+                GetSmoothnessString(smoothnessBuffer, delay * 2);
+
+                char paramBuffer[MediumBufferSize];
+                sprintf(paramBuffer, "%d, %s", rgb, smoothnessBuffer);
+                
+                SendCommand(networkClients, light->ipAddress, Yeelight::SetRgb, paramBuffer);
+            }
+        }
+
+        CloseConnections(networkClients);
+
+        if (isLastSteal)
+        {
+            RandomColorsGetRandomTargets(rc, false);
+        }
     }
-
-
 }
 
 void CommandStartColorFlowLoop(Light_Collection *lightCollection, 
@@ -228,19 +290,9 @@ void CommandChangeColor(Light_Collection *lightCollection,
         menu->color.b = analogValue;
     }
 
-    uint32_t red = (uint32_t)(menu->color.r * 255.0f);
-    uint32_t green = (uint32_t)(menu->color.g * 255.0f);
-    uint32_t blue = (uint32_t)(menu->color.b * 255.0f);
-    uint32_t rgb = RGB(red, green, blue);
+    uint32_t rgb = ColorToRGB(menu->color);
 
-    // Print("R: ");
-    // Print(red);
-    // Print(", G: ");
-    // Print(green);
-    // Print(", B: ");
-    // Print(blue);
-    // Print(", RGB: ");
-    // PrintN(rgb);
+    PrintColor(menu->color);    
 
     for (int lightIndex = 0;
          lightIndex < lightCollection->currentLightCount;

@@ -100,6 +100,11 @@ void SetMode(Save_State *save, Menu_State *menu,
             CommandStartColorFlowLoop(lightCollection, networkClients, 
                                       menu, CF_Police);
         }
+        else if (mode == ModeB)
+        {
+            PrintN("ModeB action, page 1 [Random Colors]");
+            longEffect->active = EffectRandomColors;
+        }
     }
     else
     {
